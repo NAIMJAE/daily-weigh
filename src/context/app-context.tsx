@@ -22,6 +22,7 @@ import {
   sendPoke,
   createGroup,
   addOwnerToGroup,
+  joinGroup,
 } from "@/lib/supabase/api";
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString } from "@/lib/utils";
@@ -47,6 +48,7 @@ interface AppContextType {
   saveDailyRecord: (recordData: Partial<DailyRecord>) => Promise<boolean>;
   sendPokeMessage: (targetUserId: string, message: string) => Promise<boolean>;
   createNewGroup: (name: string, penaltyRule: string) => Promise<Group | null>;
+  joinExistingGroup: (group: Group) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshGroupData: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -311,6 +313,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [user, groups, showToast]
   );
 
+  const joinExistingGroup = useCallback(
+    async (group: Group) => {
+      if (!user) return false;
+      const res = await joinGroup(user.id, group.id);
+      if (!res) return false;
+
+      const userGroups = await fetchUserGroups(user.id);
+      setGroups(userGroups);
+      setCurrentGroup(group);
+      await loadGroupData(group);
+      showToast(`🎉 '${group.name}' 그룹에 성공적으로 참여했습니다!`);
+      return true;
+    },
+    [user, loadGroupData, showToast]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -334,6 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         saveDailyRecord,
         sendPokeMessage,
         createNewGroup,
+        joinExistingGroup,
         logout,
         refreshGroupData,
         refreshAuth: init,

@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  CartesianGrid,
 } from "recharts";
 import { TrendingDown, ArrowUpRight, Check, Activity } from "lucide-react";
 import { DailyRecord, GroupMember } from "@/types";
@@ -202,6 +203,14 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
               data={chartData}
               margin={{ top: 10, right: 10, left: -18, bottom: 0 }}
             >
+              {/* x, y축에 맞춘 연한 가로/세로 구분선 */}
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#F0F0F0"
+                vertical={true}
+                horizontal={true}
+              />
+
               {/* Reference Baseline at 0kg for Delta mode */}
               {chartMode === "delta" && (
                 <ReferenceLine

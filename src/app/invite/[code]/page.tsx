@@ -11,8 +11,8 @@ import {
   getSessionUser,
   fetchProfile,
   fetchGroupByInviteCode,
-  joinGroup,
 } from "@/lib/supabase/api";
+import { useApp } from "@/context/app-context";
 import { Group, UserProfile } from "@/types";
 
 export default function InvitePage({
@@ -23,6 +23,7 @@ export default function InvitePage({
   const resolvedParams = use(params);
   const router = useRouter();
   const inviteCode = resolvedParams.code;
+  const { joinExistingGroup, refreshAuth } = useApp();
 
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -71,14 +72,24 @@ export default function InvitePage({
   const handleJoin = async () => {
     if (!user || !targetGroup) return;
     setJoining(true);
-    const result = await joinGroup(user.id, targetGroup.id);
-    if (result) {
-      setJoined(true);
-      setTimeout(() => router.push("/"), 1500);
-    } else {
-      setErrorMsg("그룹 참여 중 오류가 발생했습니다. 다시 시도해주세요.");
+    setErrorMsg("");
+
+    try {
+      const success = await joinExistingGroup(targetGroup);
+      if (success) {
+        setJoined(true);
+        setTimeout(() => {
+          router.push("/");
+        }, 800);
+      } else {
+        setErrorMsg("그룹 참여 중 오류가 발생했습니다. 다시 시도해주세요.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "그룹 참여 중 오류가 발생했습니다.");
+    } finally {
+      setJoining(false);
     }
-    setJoining(false);
   };
 
   // ── Loading ──
