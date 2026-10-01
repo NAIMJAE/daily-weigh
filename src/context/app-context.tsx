@@ -23,6 +23,7 @@ import {
   createGroup,
   addOwnerToGroup,
   joinGroup,
+  uploadBodyPhoto,
 } from "@/lib/supabase/api";
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString } from "@/lib/utils";
@@ -243,12 +244,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (recordData: Partial<DailyRecord>) => {
       if (!user || !currentGroup) return false;
       const isNew = !myTodayRecord;
+
+      let finalPhotoUrl = recordData.photo_url !== undefined ? recordData.photo_url : (myTodayRecord?.photo_url ?? null);
+
+      // DataURL(Base64)이 전달된 경우 Supabase Storage에 업로드하여 정식 CDN URL로 변환
+      if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
+        try {
+          const arr = finalPhotoUrl.split(",");
+          const mimeMatch = arr[0].match(/:(.*?);/);
+          const mimeType = mimeMatch ? mimeMatch[1] : "image/webp";
+          const bstr = atob(arr[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const photoBlob = new Blob([u8arr], { type: mimeType });
+
+          const uploadedUrl = await uploadBodyPhoto(user.id, photoBlob, mimeType);
+          if (uploadedUrl) {
+            finalPhotoUrl = uploadedUrl;
+          }
+        } catch (uploadErr) {
+          console.warn("Storage upload failed, falling back to dataUrl:", uploadErr);
+        }
+      }
+
       const payload = {
         user_id: user.id,
         group_id: currentGroup.id,
         record_date: todayStr,
         weight: recordData.weight !== undefined ? recordData.weight : (myTodayRecord?.weight ?? null),
-        photo_url: recordData.photo_url !== undefined ? recordData.photo_url : (myTodayRecord?.photo_url ?? null),
+        photo_url: finalPhotoUrl,
         workout_tags: recordData.workout_tags !== undefined ? recordData.workout_tags : (myTodayRecord?.workout_tags ?? null),
         workout_minutes: recordData.workout_minutes !== undefined ? recordData.workout_minutes : (myTodayRecord?.workout_minutes ?? null),
         memo: recordData.memo !== undefined ? recordData.memo : (myTodayRecord?.memo ?? null),
@@ -280,7 +307,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             )
           );
         }
-        showToast("🎉 오늘의 기록이 저장되었습니다! 스트릭 유지 완료!");
+        showToast(`🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다!`);
         return true;
       } else {
         showToast("⚠️ 저장 중 오류가 발생했습니다. 다시 시도해주세요.");

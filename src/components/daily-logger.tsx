@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Scale, Camera, Dumbbell, Sparkles, Check, Upload, Trash2 } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { Scale, Camera, Dumbbell, Sparkles, Check, Upload, Trash2, Image as ImageIcon, Loader2 } from "lucide-react";
 import { DailyRecord } from "@/types";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -52,7 +52,11 @@ export function DailyLogger({
   const [memo, setMemo] = useState<string>(currentRecord?.memo ?? "");
   
   const [isCompressing, setIsCompressing] = useState(false);
+  const [compressError, setCompressError] = useState<string | null>(null);
   const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // 최소 1개 이상 입력 여부 확인
   const hasWeight = Boolean(weight.trim());
@@ -79,16 +83,22 @@ export function DailyLogger({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setCompressError(null);
+    setIsCompressing(true);
+
     try {
-      setIsCompressing(true);
-      const result = await compressImage(file, 1080, 0.82);
+      const result = await compressImage(file, 1200, 0.8);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Image compression error:", err);
-      alert("이미지 처리 중 오류가 발생했습니다.");
+      setCompressError(err?.message || "사진 처리 중 오류가 발생했습니다. 다른 사진으로 시도해주세요.");
     } finally {
       setIsCompressing(false);
+      // 같은 파일을 다시 선택할 수 있도록 input 초기화
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -235,8 +245,33 @@ export function DailyLogger({
           </span>
         </div>
 
+        {/* 숨겨진 파일 인풋: 카메라 직접 촬영용 & 갤러리 앨범용 */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handlePhotoUpload}
+          disabled={isCompressing}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handlePhotoUpload}
+          disabled={isCompressing}
+        />
+
+        {compressError && (
+          <div className="p-2.5 bg-red-50 border border-red-200 rounded-[6px] text-xs text-red-600">
+            {compressError}
+          </div>
+        )}
+
         {photoUrl ? (
-          <div className="relative w-full aspect-[4/3] max-h-52 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[8px] overflow-hidden flex items-center justify-center">
+          <div className="relative w-full aspect-[4/3] max-h-56 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[8px] overflow-hidden flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photoUrl}
@@ -248,36 +283,70 @@ export function DailyLogger({
               onClick={() => {
                 setPhotoUrl(null);
                 setPhotoSizeKb(null);
+                setCompressError(null);
               }}
-              className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-[6px] hover:bg-black transition-colors cursor-pointer"
+              className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-[6px] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-xs"
             >
               <Trash2 className="w-3.5 h-3.5" />
+              <span>삭제</span>
             </button>
             {photoSizeKb && (
               <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[10px] rounded-[4px] font-mono">
-                WebP ({photoSizeKb} KB)
+                압축 완료 ({photoSizeKb} KB)
               </span>
             )}
           </div>
         ) : (
-          <label className="border border-dashed border-[#D4D4D8] hover:border-[#111111] rounded-[8px] p-5 sm:p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-[#FAFAFA] active:bg-zinc-100">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoUpload}
-              disabled={isCompressing}
-            />
-            <Upload className="w-5 h-5 text-[#666666]" />
-            <div className="text-center">
-              <span className="text-xs font-semibold text-[#111111]">
-                {isCompressing ? "사진 압축 중..." : "눈바디 사진 촬영 또는 업로드"}
-              </span>
-              <p className="text-[11px] text-[#999999] mt-0.5">
-                WebP로 자동 압축되어 스토리지 용량을 절약합니다
-              </p>
-            </div>
-          </label>
+          <div className="space-y-2">
+            {isCompressing ? (
+              <div className="border border-dashed border-[#FF4D00] bg-[#FFF9F6] rounded-[8px] p-6 flex flex-col items-center justify-center gap-2 text-center">
+                <Loader2 className="w-6 h-6 text-[#FF4D00] animate-spin" />
+                <span className="text-xs font-bold text-[#111111]">
+                  사진을 최적화하고 있습니다...
+                </span>
+                <span className="text-[11px] text-[#666666]">
+                  용량을 절약하기 위해 가볍게 압축 중입니다.
+                </span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center"
+                >
+                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center">
+                    <Camera className="w-4 h-4 text-[#FF4D00]" />
+                  </div>
+                  <span className="text-xs font-bold text-[#111111]">
+                    카메라로 촬영
+                  </span>
+                  <span className="text-[10px] text-[#999999]">
+                    지금 바로 찰칵 📸
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center"
+                >
+                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                    <ImageIcon className="w-4 h-4 text-zinc-700" />
+                  </div>
+                  <span className="text-xs font-bold text-[#111111]">
+                    앨범에서 선택
+                  </span>
+                  <span className="text-[10px] text-[#999999]">
+                    갤러리 사진 불러오기 🖼️
+                  </span>
+                </button>
+              </div>
+            )}
+            <p className="text-[11px] text-[#999999] text-center">
+              사진은 자동으로 가볍게 압축되어 빠르게 업로드됩니다.
+            </p>
+          </div>
         )}
       </div>
 

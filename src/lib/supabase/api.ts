@@ -308,16 +308,27 @@ export async function sendPoke(
 
 export async function uploadBodyPhoto(
   userId: string,
-  file: File
+  file: File | Blob,
+  mimeType = "image/webp"
 ): Promise<string | null> {
   const supabase = createClient();
   if (!supabase) return null;
-  const ext = file.name.split(".").pop() ?? "webp";
+  
+  const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "webp";
   const path = `${userId}/${Date.now()}.${ext}`;
+  
   const { error } = await supabase.storage
     .from("body-photos")
-    .upload(path, file, { upsert: true });
-  if (error) { console.error("uploadBodyPhoto:", error); return null; }
+    .upload(path, file, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (error) {
+    console.error("uploadBodyPhoto storage error:", error);
+    return null;
+  }
+
   const { data } = supabase.storage.from("body-photos").getPublicUrl(path);
   return data.publicUrl;
 }
