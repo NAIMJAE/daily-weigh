@@ -27,6 +27,8 @@ import {
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString } from "@/lib/utils";
 
+const ACTIVE_GROUP_KEY = "daily_weigh_active_group_id";
+
 interface AppContextType {
   user: UserProfile | null;
   groups: Group[];
@@ -126,14 +128,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setGroups(userGroups);
 
       if (userGroups.length > 0) {
-        // 기존 선택된 그룹이 목록에 있으면 유지, 없으면 첫번째
-        setCurrentGroup((prev) => {
-          const found = prev ? userGroups.find((g) => g.id === prev.id) : null;
-          return found || userGroups[0];
-        });
-        const targetGroup = userGroups[0];
+        let savedGroupId: string | null = null;
+        if (typeof window !== "undefined") {
+          savedGroupId = localStorage.getItem(ACTIVE_GROUP_KEY);
+        }
+
+        // 1순위: localStorage에 저장된 유효한 그룹
+        // 2순위: 사용자 그룹 목록의 첫 번째 그룹
+        const matchedGroup = savedGroupId
+          ? userGroups.find((g) => g.id === savedGroupId)
+          : null;
+        const targetGroup = matchedGroup || userGroups[0];
+
+        if (typeof window !== "undefined" && targetGroup) {
+          localStorage.setItem(ACTIVE_GROUP_KEY, targetGroup.id);
+        }
+
+        setCurrentGroup(targetGroup);
+        // 그룹 전환 시 데이터 격리
+        setMembers([]);
+        setRecords([]);
+        setPokes([]);
         await loadGroupData(targetGroup);
       } else {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(ACTIVE_GROUP_KEY);
+        }
         setCurrentGroup(null);
         setMembers([]);
         setRecords([]);
@@ -177,7 +197,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const selectGroup = useCallback(
     async (group: Group) => {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVE_GROUP_KEY, group.id);
+      }
       setCurrentGroup(group);
+      setMembers([]);
+      setRecords([]);
+      setPokes([]);
       await loadGroupData(group);
     },
     [loadGroupData]
@@ -190,6 +216,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [currentGroup, loadGroupData]);
 
   const logout = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(ACTIVE_GROUP_KEY);
+    }
     const supabase = createClient();
     if (supabase) await supabase.auth.signOut();
     setUser(null);
@@ -290,6 +319,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return null;
       }
       await addOwnerToGroup(user.id, newGroup.id);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVE_GROUP_KEY, newGroup.id);
+      }
+
       const updatedGroups = [...groups, newGroup];
       setGroups(updatedGroups);
       setCurrentGroup(newGroup);
@@ -319,9 +353,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const res = await joinGroup(user.id, group.id);
       if (!res) return false;
 
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ACTIVE_GROUP_KEY, group.id);
+      }
+
       const userGroups = await fetchUserGroups(user.id);
       setGroups(userGroups);
       setCurrentGroup(group);
+      setMembers([]);
+      setRecords([]);
+      setPokes([]);
       await loadGroupData(group);
       showToast(`🎉 '${group.name}' 그룹에 성공적으로 참여했습니다!`);
       return true;

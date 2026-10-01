@@ -108,10 +108,17 @@ export default function LeaderboardPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
-                <Trophy className="w-4 h-4 text-[#FF4D00]" />
-                주간 열정 리더보드 & 독설 피드
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
+                  <Trophy className="w-4 h-4 text-[#FF4D00]" />
+                  주간 열정 리더보드 & 독설 피드
+                </h1>
+                {currentGroup && (
+                  <span className="text-[11px] font-bold text-[#FF4D00] bg-[#FFF1EB] border border-[#FFD8CC] px-2 py-0.5 rounded-[4px]">
+                    {currentGroup.name}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[#666666]">
                 기록 활동으로 획득한 포인트 순위와 친구들의 매콤한 찌르기를 확인하세요.
               </p>
@@ -215,6 +222,7 @@ export default function LeaderboardPage() {
         <DailyLogger
           currentRecord={myTodayRecord}
           startWeight={user?.start_weight}
+          groupName={currentGroup?.name}
           onSave={saveDailyRecord}
           onClose={() => setLoggerOpen(false)}
         />

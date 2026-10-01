@@ -105,10 +105,17 @@ export default function OverlayPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
-                <Eye className="w-4 h-4 text-[#FF4D00]" />
-                눈바디 겹쳐보기 & 비교
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
+                  <Eye className="w-4 h-4 text-[#FF4D00]" />
+                  눈바디 겹쳐보기 & 비교
+                </h1>
+                {currentGroup && (
+                  <span className="text-[11px] font-bold text-[#FF4D00] bg-[#FFF1EB] border border-[#FFD8CC] px-2 py-0.5 rounded-[4px]">
+                    {currentGroup.name}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[#666666]">
                 과거와 현재의 체형 라인을 1:1로 직접 겹쳐보며 감량 효과를 확인하세요.
               </p>
@@ -143,6 +150,7 @@ export default function OverlayPage() {
         <DailyLogger
           currentRecord={myTodayRecord}
           startWeight={user?.start_weight}
+          groupName={currentGroup?.name}
           onSave={saveDailyRecord}
           onClose={() => setLoggerOpen(false)}
         />

@@ -11,6 +11,7 @@ import { compressImage } from "@/lib/image-compressor";
 interface DailyLoggerProps {
   currentRecord?: DailyRecord | null;
   startWeight?: number | null;
+  groupName?: string;
   onSave: (recordData: Partial<DailyRecord>) => void;
   onClose: () => void;
 }
@@ -31,6 +32,7 @@ const WORKOUT_TIME_PRESETS = [15, 30, 45, 60, 90];
 export function DailyLogger({
   currentRecord,
   startWeight,
+  groupName,
   onSave,
   onClose,
 }: DailyLoggerProps) {
@@ -121,6 +123,17 @@ export function DailyLogger({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+      {/* Target Group Info Badge */}
+      {groupName && (
+        <div className="flex items-center justify-between px-3 py-2 bg-[#FFF9F6] border border-[#FFD8CC] rounded-[8px] text-xs">
+          <span className="text-[#666666] text-[11px] font-medium">기록 대상 그룹</span>
+          <span className="font-bold text-[#FF4D00] flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#FF4D00]" />
+            {groupName}
+          </span>
+        </div>
+      )}
+
       {/* Zero Friction Notice & Real-time Progress Bar */}
       <div className="p-3 bg-[#F4F4F5] border border-[#E5E5E5] rounded-[8px] space-y-2">
         <div className="flex items-center justify-between text-xs">

@@ -129,10 +129,17 @@ export default function GroupPage() {
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-[#FF4D00]" />
-                내 그룹 & 친구 초대
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold text-[#111111] flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-[#FF4D00]" />
+                  내 그룹 & 친구 초대
+                </h1>
+                {currentGroup && (
+                  <span className="text-[11px] font-bold text-[#FF4D00] bg-[#FFF1EB] border border-[#FFD8CC] px-2 py-0.5 rounded-[4px]">
+                    {currentGroup.name}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-[#666666]">
                 현재 그룹의 규칙을 확인하고 초대 링크를 단톡방에 공유하세요.
               </p>
@@ -351,6 +358,7 @@ export default function GroupPage() {
         <DailyLogger
           currentRecord={myTodayRecord}
           startWeight={user?.start_weight}
+          groupName={currentGroup?.name}
           onSave={saveDailyRecord}
           onClose={() => setLoggerOpen(false)}
         />

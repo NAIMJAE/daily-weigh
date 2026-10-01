@@ -221,12 +221,15 @@ export default function DashboardPage() {
 
         {/* Top CTA Banner */}
         <section className="p-4 sm:p-5 bg-white border border-[#E5E5E5] rounded-[10px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-          <div className="space-y-1 min-w-0">
+          <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="w-2 h-2 rounded-full bg-[#FF4D00] shrink-0" />
               <h2 className="text-sm font-bold text-[#111111]">
                 {myTodayRecord ? "오늘의 출석 완료! 🎉" : "오늘도 가볍게 1개만 올려볼까요?"}
               </h2>
+              <span className="text-[11px] font-bold text-[#FF4D00] bg-[#FFF1EB] border border-[#FFD8CC] px-2 py-0.5 rounded-[4px]">
+                {currentGroup.name}
+              </span>
               {myTodayRecord ? (
                 <Badge variant="success">기록 완료 (+{myTodayRecord.points_earned}P)</Badge>
               ) : (
@@ -235,8 +238,8 @@ export default function DashboardPage() {
             </div>
             <p className="text-xs text-[#666666]">
               {myTodayRecord
-                ? `언제든 추가 항목을 수정할 수 있어요 · 연속 ${userMemberInfo?.streak_days ?? 0}일째 스트릭 유지 중!`
-                : "체중, 눈바디, 운동 중 딱 1개만 입력해도 오늘 출석이 인정됩니다."}
+                ? `[${currentGroup.name}] 언제든 추가 항목을 수정할 수 있어요 · 연속 ${userMemberInfo?.streak_days ?? 0}일째 스트릭 유지 중!`
+                : `[${currentGroup.name}] 체중, 눈바디, 운동 중 딱 1개만 입력해도 오늘 출석이 인정됩니다.`}
             </p>
           </div>
 
@@ -351,6 +354,7 @@ export default function DashboardPage() {
         <DailyLogger
           currentRecord={myTodayRecord}
           startWeight={user.start_weight}
+          groupName={currentGroup.name}
           onSave={saveDailyRecord}
           onClose={() => setLoggerOpen(false)}
         />
