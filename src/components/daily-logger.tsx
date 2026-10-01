@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { Scale, Camera, Dumbbell, Sparkles, Check, Upload, Trash2, Image as ImageIcon, Loader2 } from "lucide-react";
 import { DailyRecord } from "@/types";
 import { Button } from "./ui/button";
@@ -54,9 +54,6 @@ export function DailyLogger({
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
   const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
-
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // 최소 1개 이상 입력 여부 확인
   const hasWeight = Boolean(weight.trim());
@@ -245,21 +242,21 @@ export function DailyLogger({
           </span>
         </div>
 
-        {/* 숨겨진 파일 인풋: 카메라 직접 촬영용 & 갤러리 앨범용 */}
+        {/* 네이티브 파일 인풋 (삼성 브라우저/안드로이드 100% 호환 sr-only label 연결) */}
         <input
-          ref={cameraInputRef}
+          id="daily-logger-camera-input"
           type="file"
           accept="image/*"
           capture="environment"
-          className="hidden"
+          className="sr-only absolute w-0 h-0 opacity-0 pointer-events-none"
           onChange={handlePhotoUpload}
           disabled={isCompressing}
         />
         <input
-          ref={galleryInputRef}
+          id="daily-logger-gallery-input"
           type="file"
-          accept="image/*"
-          className="hidden"
+          accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif"
+          className="sr-only absolute w-0 h-0 opacity-0 pointer-events-none"
           onChange={handlePhotoUpload}
           disabled={isCompressing}
         />
@@ -310,37 +307,35 @@ export function DailyLogger({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center"
+                <label
+                  htmlFor="daily-logger-camera-input"
+                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center select-none"
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center pointer-events-none">
                     <Camera className="w-4 h-4 text-[#FF4D00]" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111]">
+                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
                     카메라로 촬영
                   </span>
-                  <span className="text-[10px] text-[#999999]">
+                  <span className="text-[10px] text-[#999999] pointer-events-none">
                     지금 바로 찰칵 📸
                   </span>
-                </button>
+                </label>
 
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center"
+                <label
+                  htmlFor="daily-logger-gallery-input"
+                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center select-none"
                 >
-                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center pointer-events-none">
                     <ImageIcon className="w-4 h-4 text-zinc-700" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111]">
+                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
                     앨범에서 선택
                   </span>
-                  <span className="text-[10px] text-[#999999]">
+                  <span className="text-[10px] text-[#999999] pointer-events-none">
                     갤러리 사진 불러오기 🖼️
                   </span>
-                </button>
+                </label>
               </div>
             )}
             <p className="text-[11px] text-[#999999] text-center">
