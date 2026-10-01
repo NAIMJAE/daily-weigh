@@ -6,6 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -26,7 +27,7 @@ import {
   uploadBodyPhoto,
 } from "@/lib/supabase/api";
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
-import { getTodayDateString } from "@/lib/utils";
+import { getTodayDateString, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
 
 import { ToastContainer, ToastItem } from "@/components/ui/toast-container";
 
@@ -277,7 +278,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const myTodayRecord = records.find(
     (r) => r.user_id === user?.id && r.record_date === todayStr
   );
-  const userMemberInfo = members.find((m) => m.user_id === user?.id);
+  const rawMemberInfo = members.find((m) => m.user_id === user?.id);
+  const userMemberInfo = useMemo(() => {
+    if (!rawMemberInfo || !user) return undefined;
+    const computedPoints = calculateWeeklyPoints(records, user.id);
+    const computedStreak = calculateStreakDays(records, user.id);
+    return {
+      ...rawMemberInfo,
+      weekly_points: Math.max(rawMemberInfo.weekly_points ?? 0, computedPoints),
+      streak_days: Math.max(rawMemberInfo.streak_days ?? 0, computedStreak),
+    };
+  }, [rawMemberInfo, user, records]);
   const myPhotoRecords = records.filter(
     (r) => r.user_id === user?.id && Boolean(r.photo_url)
   );

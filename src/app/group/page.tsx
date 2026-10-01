@@ -23,7 +23,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/app-context";
-import { formatDate } from "@/lib/utils";
+import { formatDate, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
 
 export default function GroupPage() {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function GroupPage() {
     groups,
     currentGroup,
     members,
+    records,
     loading,
     mounted,
     isConfigured,
@@ -283,6 +284,9 @@ export default function GroupPage() {
                   {members.map((member) => {
                     const isMe = member.user_id === user?.id;
                     const isOwner = member.role === "owner";
+                    const liveWeeklyPoints = Math.max(member.weekly_points ?? 0, calculateWeeklyPoints(records, member.user_id));
+                    const liveStreakDays = Math.max(member.streak_days ?? 0, calculateStreakDays(records, member.user_id));
+
                     return (
                       <div
                         key={member.id}
@@ -321,11 +325,11 @@ export default function GroupPage() {
                         <div className="flex items-center gap-3 shrink-0">
                           <div className="text-right">
                             <div className="text-xs font-bold font-mono text-[#111111]">
-                              {member.weekly_points}P
+                              {liveWeeklyPoints}P
                             </div>
                             <div className="text-[10px] text-[#FF4D00] flex items-center justify-end gap-0.5 font-semibold">
                               <Flame className="w-2.5 h-2.5 fill-current" />
-                              {member.streak_days}일 연속
+                              {liveStreakDays}일 연속
                             </div>
                           </div>
                         </div>

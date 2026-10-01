@@ -5,7 +5,7 @@ import { Trophy, Flame, AlertCircle, ArrowRight, Check, X, ShieldAlert } from "l
 import { DailyRecord, Group, GroupMember } from "@/types";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { getTodayDateString } from "@/lib/utils";
+import { getTodayDateString, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
 
 interface LeaderboardProps {
   currentGroup: Group;
@@ -24,9 +24,21 @@ export function Leaderboard({
 }: LeaderboardProps) {
   const todayStr = getTodayDateString();
 
+  // 각 멤버별 실시간 주간 포인트 및 스트릭 계산 (records와 member.weekly_points 중 최신값 적용)
+  const enrichedMembers = members.map((member) => {
+    const computedWeeklyPoints = calculateWeeklyPoints(records, member.user_id);
+    const computedStreakDays = calculateStreakDays(records, member.user_id);
+
+    return {
+      ...member,
+      liveWeeklyPoints: Math.max(member.weekly_points ?? 0, computedWeeklyPoints),
+      liveStreakDays: Math.max(member.streak_days ?? 0, computedStreakDays),
+    };
+  });
+
   // 주간 열정 포인트 순 정렬 (내림차순)
-  const sortedMembers = [...members].sort(
-    (a, b) => b.weekly_points - a.weekly_points
+  const sortedMembers = [...enrichedMembers].sort(
+    (a, b) => b.liveWeeklyPoints - a.liveWeeklyPoints
   );
 
   return (
@@ -121,7 +133,7 @@ export function Leaderboard({
                     <span>•</span>
                     <span className="flex items-center gap-0.5 text-[#111111] font-semibold shrink-0">
                       <Flame className="w-3 h-3 text-[#FF4D00] shrink-0" />
-                      {member.streak_days}일
+                      {member.liveStreakDays}일
                     </span>
                   </div>
                 </div>
@@ -171,7 +183,7 @@ export function Leaderboard({
                 {/* Score */}
                 <div className="text-right min-w-[50px] shrink-0">
                   <span className="text-sm font-bold font-mono text-[#111111]">
-                    {member.weekly_points}
+                    {member.liveWeeklyPoints}
                   </span>
                   <span className="text-[10px] text-[#999999] ml-0.5 font-bold">P</span>
                 </div>
