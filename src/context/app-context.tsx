@@ -347,24 +347,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ? [...prev, updatedRecord]
             : prev.map((r) => (r.id === saved.id ? updatedRecord : r))
         );
-        if (isNew) {
+
+        // 첫 기록이거나 수정 시 포인트 차액 계산하여 실시간 반영
+        const prevPoints = myTodayRecord?.points_earned ?? 0;
+        const deltaPoints = isNew ? payload.points_earned : payload.points_earned - prevPoints;
+        const deltaStreak = isNew ? 1 : 0;
+
+        if (deltaStreak !== 0 || deltaPoints !== 0) {
           await updateMemberStats(user.id, currentGroup.id, {
-            streak_days: 1,
-            weekly_points: payload.points_earned,
+            streak_days: deltaStreak,
+            weekly_points: deltaPoints,
           });
           setMembers((prev) =>
             prev.map((m) =>
               m.user_id === user.id
                 ? {
                     ...m,
-                    streak_days: m.streak_days + 1,
-                    weekly_points: m.weekly_points + payload.points_earned,
+                    streak_days: m.streak_days + deltaStreak,
+                    weekly_points: Math.max(0, m.weekly_points + deltaPoints),
                   }
                 : m
             )
           );
         }
-        showToast(`🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다!`, "success");
+        showToast(
+          `🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다! (+${payload.points_earned}P)`,
+          "success"
+        );
         return true;
       } else {
         const errObj = dbError;
