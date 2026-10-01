@@ -87,14 +87,6 @@ export default function OverlayPage() {
       )}
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-12">
-        {/* Toast */}
-        {toastMsg && (
-          <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 bg-[#111111] text-white px-4 py-2.5 rounded-[8px] text-xs font-semibold shadow-md flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#FF4D00] shrink-0" />
-            <span>{toastMsg}</span>
-          </div>
-        )}
-
         {/* Page Header */}
         <div className="flex items-center justify-between pb-2">
           <div className="flex items-center gap-2">

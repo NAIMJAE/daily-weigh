@@ -211,14 +211,6 @@ export default function DashboardPage() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-3.5 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-12">
-        {/* Toast */}
-        {toastMsg && (
-          <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 bg-[#111111] text-white px-4 py-2.5 rounded-[8px] text-xs font-semibold shadow-md flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#FF4D00] shrink-0" />
-            <span>{toastMsg}</span>
-          </div>
-        )}
-
         {/* Top CTA Banner */}
         <section className="p-4 sm:p-5 bg-white border border-[#E5E5E5] rounded-[10px] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
           <div className="space-y-1.5 min-w-0">

@@ -28,6 +28,8 @@ import {
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString } from "@/lib/utils";
 
+import { ToastContainer, ToastItem } from "@/components/ui/toast-container";
+
 const ACTIVE_GROUP_KEY = "daily_weigh_active_group_id";
 
 interface AppContextType {
@@ -46,7 +48,11 @@ interface AppContextType {
   loggerOpen: boolean;
   setLoggerOpen: (open: boolean) => void;
   toastMsg: string | null;
-  showToast: (msg: string) => void;
+  showToast: (
+    msg: string,
+    type?: "info" | "success" | "error" | "warning",
+    code?: string
+  ) => void;
   selectGroup: (group: Group) => Promise<void>;
   saveDailyRecord: (recordData: Partial<DailyRecord>) => Promise<boolean>;
   sendPokeMessage: (targetUserId: string, message: string) => Promise<boolean>;
@@ -71,12 +77,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [pokes, setPokes] = useState<PokeMessage[]>([]);
   const [loggerOpen, setLoggerOpen] = useState(false);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = useCallback((msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  const showToast = useCallback(
+    (
+      msg: string,
+      type?: "info" | "success" | "error" | "warning",
+      code?: string
+    ) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      
+      // type 자동 판별 (지정되지 않은 경우)
+      let detectedType: "info" | "success" | "error" | "warning" = type ?? "info";
+      if (!type) {
+        if (/에러|오류|실패|error|exception|fail/i.test(msg) || msg.includes("⚠️") || msg.includes("🚨")) {
+          detectedType = "error";
+        } else if (/완료|성공|축하|환영|✨|🎉/i.test(msg)) {
+          detectedType = "success";
+        }
+      }
+
+      const newToast: ToastItem = {
+        id,
+        message: msg,
+        type: detectedType,
+        code,
+      };
+
+      setToasts((prev) => [...prev.slice(-3), newToast]); // 최대 4개 표시
+
+      const duration = detectedType === "error" ? 8000 : 4000;
+      setTimeout(() => {
+        dismissToast(id);
+      }, duration);
+    },
+    [dismissToast]
+  );
+
+  const toastMsg = toasts.length > 0 ? toasts[toasts.length - 1].message : null;
 
   const loadGroupData = useCallback(async (group: Group) => {
     try {
@@ -261,12 +303,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           const photoBlob = new Blob([u8arr], { type: mimeType });
 
-          const uploadedUrl = await uploadBodyPhoto(user.id, photoBlob, mimeType);
-          if (uploadedUrl) {
-            finalPhotoUrl = uploadedUrl;
+          const uploadResult = await uploadBodyPhoto(user.id, photoBlob, mimeType);
+          if (uploadResult.url) {
+            finalPhotoUrl = uploadResult.url;
+          } else if (uploadResult.error) {
+            const errObj = uploadResult.error;
+            const errCode = errObj?.statusCode || errObj?.error || errObj?.name || "STORAGE_UPLOAD_ERROR";
+            const errDetail = errObj?.message || errObj?.error_description || JSON.stringify(errObj);
+            console.error("Storage upload failed:", uploadResult.error);
+            showToast(
+              `⚠️ [스토리지 업로드 실패: ${errDetail}]`,
+              "error",
+              `CODE: ${errCode}`
+            );
           }
-        } catch (uploadErr) {
-          console.warn("Storage upload failed, falling back to dataUrl:", uploadErr);
+        } catch (uploadErr: any) {
+          console.error("Storage upload exception:", uploadErr);
+          showToast(
+            `⚠️ [스토리지 예외 발생: ${uploadErr.message || uploadErr}]`,
+            "error",
+            `CODE: ${uploadErr.name || "CLIENT_STORAGE_EXCEPTION"}`
+          );
         }
       }
 
@@ -282,7 +339,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         points_earned: recordData.points_earned ?? 20,
       };
 
-      const saved = await upsertDailyRecord(payload);
+      const { data: saved, error: dbError } = await upsertDailyRecord(payload);
       if (saved) {
         const updatedRecord = { ...saved, profile: user };
         setRecords((prev) =>
@@ -307,10 +364,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             )
           );
         }
-        showToast(`🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다!`);
+        showToast(`🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다!`, "success");
         return true;
       } else {
-        showToast("⚠️ 저장 중 오류가 발생했습니다. 다시 시도해주세요.");
+        const errObj = dbError;
+        const errCode = errObj?.code || errObj?.statusCode || "POSTGRES_UPSERT_ERROR";
+        const dbErrDetail = errObj?.message || errObj?.details || errObj?.hint || JSON.stringify(errObj);
+        console.error("upsertDailyRecord failed:", dbError);
+        showToast(
+          `⚠️ [기록 DB 저장 실패: ${dbErrDetail || "알 수 없는 오류"}]`,
+          "error",
+          `CODE: ${errCode} | HINT: ${errObj?.hint || "none"}`
+        );
         return false;
       }
     },
@@ -427,6 +492,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </AppContext.Provider>
   );
 }

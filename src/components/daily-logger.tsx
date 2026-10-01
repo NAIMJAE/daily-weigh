@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { compressImage } from "@/lib/image-compressor";
+import { useApp } from "@/context/app-context";
 
 interface DailyLoggerProps {
   currentRecord?: DailyRecord | null;
@@ -36,6 +37,8 @@ export function DailyLogger({
   onSave,
   onClose,
 }: DailyLoggerProps) {
+  const { showToast } = useApp();
+
   // 모듈별 독립 상태
   const [weight, setWeight] = useState<string>(
     currentRecord?.weight ? String(currentRecord.weight) : ""
@@ -78,7 +81,16 @@ export function DailyLogger({
   // 사진 업로드 및 자동 압축
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      showToast("⚠️ 파일이 선택되지 않았습니다.", "warning");
+      return;
+    }
+
+    const fileSizeKb = Math.round(file.size / 1024);
+    showToast(
+      `📸 [선택됨: ${file.name || "사진"} (${fileSizeKb}KB)] 최적화 압축을 시작합니다...`,
+      "info"
+    );
 
     setCompressError(null);
     setIsCompressing(true);
@@ -87,12 +99,22 @@ export function DailyLogger({
       const result = await compressImage(file, 1200, 0.8);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
+      showToast(
+        `✨ [압축 성공] ${fileSizeKb}KB ➔ ${result.sizeKb}KB (${result.mimeType})`,
+        "success"
+      );
     } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      const errName = err?.name || "IMAGE_PROCESSING_FAILED";
       console.error("Image compression error:", err);
-      setCompressError(err?.message || "사진 처리 중 오류가 발생했습니다. 다른 사진으로 시도해주세요.");
+      setCompressError(`[오류 발생] ${errMsg}`);
+      showToast(
+        `⚠️ [사진 처리 실패] ${errMsg}`,
+        "error",
+        `ERR_CODE: ${errName} | FILE: ${file.name || "unknown"}`
+      );
     } finally {
       setIsCompressing(false);
-      // 같은 파일을 다시 선택할 수 있도록 input 초기화
       if (e.target) {
         e.target.value = "";
       }
@@ -242,25 +264,7 @@ export function DailyLogger({
           </span>
         </div>
 
-        {/* 네이티브 파일 인풋 (삼성 브라우저/안드로이드 100% 호환 sr-only label 연결) */}
-        <input
-          id="daily-logger-camera-input"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="sr-only absolute w-0 h-0 opacity-0 pointer-events-none"
-          onChange={handlePhotoUpload}
-          disabled={isCompressing}
-        />
-        <input
-          id="daily-logger-gallery-input"
-          type="file"
-          accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif"
-          className="sr-only absolute w-0 h-0 opacity-0 pointer-events-none"
-          onChange={handlePhotoUpload}
-          disabled={isCompressing}
-        />
-
+        {/* 압축 또는 파일 에러 표시 */}
         {compressError && (
           <div className="p-2.5 bg-red-50 border border-red-200 rounded-[6px] text-xs text-red-600">
             {compressError}
@@ -282,7 +286,7 @@ export function DailyLogger({
                 setPhotoSizeKb(null);
                 setCompressError(null);
               }}
-              className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-[6px] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-xs"
+              className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-[6px] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-xs z-40"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>삭제</span>
@@ -307,35 +311,48 @@ export function DailyLogger({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                <label
-                  htmlFor="daily-logger-camera-input"
-                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center select-none"
-                >
-                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center pointer-events-none">
+                {/* 1. 카메라 직접 촬영 버튼 (투명 input 100% 직결 오버레이) */}
+                <div className="relative overflow-hidden p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+                    onChange={handlePhotoUpload}
+                    disabled={isCompressing}
+                    title="카메라로 촬영"
+                  />
+                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center">
                     <Camera className="w-4 h-4 text-[#FF4D00]" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
+                  <span className="text-xs font-bold text-[#111111]">
                     카메라로 촬영
                   </span>
-                  <span className="text-[10px] text-[#999999] pointer-events-none">
+                  <span className="text-[10px] text-[#999999]">
                     지금 바로 찰칵 📸
                   </span>
-                </label>
+                </div>
 
-                <label
-                  htmlFor="daily-logger-gallery-input"
-                  className="flex flex-col items-center justify-center gap-1.5 p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all cursor-pointer active:scale-95 text-center select-none"
-                >
-                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center pointer-events-none">
+                {/* 2. 앨범에서 선택 버튼 (투명 input 100% 직결 오버레이) */}
+                <div className="relative overflow-hidden p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                  <input
+                    type="file"
+                    accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+                    onChange={handlePhotoUpload}
+                    disabled={isCompressing}
+                    title="앨범에서 선택"
+                  />
+                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center">
                     <ImageIcon className="w-4 h-4 text-zinc-700" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
+                  <span className="text-xs font-bold text-[#111111]">
                     앨범에서 선택
                   </span>
-                  <span className="text-[10px] text-[#999999] pointer-events-none">
+                  <span className="text-[10px] text-[#999999]">
                     갤러리 사진 불러오기 🖼️
                   </span>
-                </label>
+                </div>
               </div>
             )}
             <p className="text-[11px] text-[#999999] text-center">

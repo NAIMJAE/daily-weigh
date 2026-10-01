@@ -208,9 +208,9 @@ export async function fetchGroupRecords(groupId: string): Promise<DailyRecord[]>
 
 export async function upsertDailyRecord(
   record: Omit<DailyRecord, "id" | "created_at" | "updated_at" | "profile">
-): Promise<DailyRecord | null> {
+): Promise<{ data: DailyRecord | null; error: any }> {
   const supabase = createClient();
-  if (!supabase) return null;
+  if (!supabase) return { data: null, error: new Error("Supabase client not initialized") };
   const { data, error } = await supabase
     .from("daily_records")
     .upsert(
@@ -222,8 +222,11 @@ export async function upsertDailyRecord(
     )
     .select()
     .single();
-  if (error) { console.error("upsertDailyRecord:", error); return null; }
-  return data as DailyRecord;
+  if (error) {
+    console.error("upsertDailyRecord error:", error);
+    return { data: null, error };
+  }
+  return { data: data as DailyRecord, error: null };
 }
 
 /** 멤버 포인트/스트릭 업데이트 */
@@ -310,9 +313,9 @@ export async function uploadBodyPhoto(
   userId: string,
   file: File | Blob,
   mimeType = "image/webp"
-): Promise<string | null> {
+): Promise<{ url: string | null; error: any }> {
   const supabase = createClient();
-  if (!supabase) return null;
+  if (!supabase) return { url: null, error: new Error("Supabase client not initialized") };
   
   const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "webp";
   const path = `${userId}/${Date.now()}.${ext}`;
@@ -326,9 +329,9 @@ export async function uploadBodyPhoto(
 
   if (error) {
     console.error("uploadBodyPhoto storage error:", error);
-    return null;
+    return { url: null, error };
   }
 
   const { data } = supabase.storage.from("body-photos").getPublicUrl(path);
-  return data.publicUrl;
+  return { url: data.publicUrl, error: null };
 }
