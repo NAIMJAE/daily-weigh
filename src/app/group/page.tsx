@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Sparkles,
@@ -53,6 +53,12 @@ export default function GroupPage() {
     mode: "create" | "invite";
   }>({ isOpen: false, mode: "create" });
 
+  useEffect(() => {
+    if (mounted && !loading && !user && isConfigured) {
+      router.replace("/auth/login");
+    }
+  }, [mounted, loading, user, isConfigured, router]);
+
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
@@ -65,11 +71,16 @@ export default function GroupPage() {
     );
   }
 
-  if (!isConfigured || !user || !currentGroup) {
-    if (mounted && !user) {
-      router.replace("/auth/login");
-      return null;
-    }
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF4D00] animate-pulse" />
+          <span className="font-extrabold text-base text-[#111111] tracking-tight">매일재라</span>
+        </div>
+        <p className="text-xs text-[#999999]">로그인 페이지로 이동 중...</p>
+      </div>
+    );
   }
 
   const inviteUrl =

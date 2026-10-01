@@ -49,6 +49,7 @@ interface AppContextType {
   createNewGroup: (name: string, penaltyRule: string) => Promise<Group | null>;
   logout: () => Promise<void>;
   refreshGroupData: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -99,6 +100,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const authUser = await getSessionUser();
       if (!authUser) {
+        setUser(null);
+        setGroups([]);
+        setCurrentGroup(null);
+        setMembers([]);
+        setRecords([]);
+        setPokes([]);
         setLoading(false);
         setMounted(true);
         return;
@@ -106,6 +113,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const profile = await fetchProfile(authUser.id);
       if (!profile) {
+        setUser(null);
         setLoading(false);
         setMounted(true);
         return;
@@ -117,9 +125,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       if (userGroups.length > 0) {
         // 기존 선택된 그룹이 목록에 있으면 유지, 없으면 첫번째
-        const initialGroup = userGroups[0];
-        setCurrentGroup(initialGroup);
-        await loadGroupData(initialGroup);
+        setCurrentGroup((prev) => {
+          const found = prev ? userGroups.find((g) => g.id === prev.id) : null;
+          return found || userGroups[0];
+        });
+        const targetGroup = userGroups[0];
+        await loadGroupData(targetGroup);
+      } else {
+        setCurrentGroup(null);
+        setMembers([]);
+        setRecords([]);
+        setPokes([]);
       }
     } catch (err) {
       console.error("Init context error:", err);
@@ -131,6 +147,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     init();
+
+    // Supabase auth state change subscription
+    const supabase = createClient();
+    if (supabase) {
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+          await init();
+        } else if (event === "SIGNED_OUT") {
+          setUser(null);
+          setGroups([]);
+          setCurrentGroup(null);
+          setMembers([]);
+          setRecords([]);
+          setPokes([]);
+          setLoading(false);
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
   }, [init]);
 
   const selectGroup = useCallback(
@@ -296,6 +336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createNewGroup,
         logout,
         refreshGroupData,
+        refreshAuth: init,
       }}
     >
       {children}

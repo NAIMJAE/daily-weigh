@@ -25,9 +25,49 @@ export async function fetchProfile(userId: string): Promise<UserProfile | null> 
     .from("profiles")
     .select("*")
     .eq("id", userId)
-    .single();
-  if (error) { console.error("fetchProfile:", error); return null; }
-  return data as UserProfile;
+    .maybeSingle();
+
+  if (error) {
+    console.error("fetchProfile error:", error);
+  }
+
+  if (data) {
+    return data as UserProfile;
+  }
+
+  // 프로필 레코드가 누락된 경우 auth 유저 정보로부터 자동 복구 생성 시도
+  const { data: authData } = await supabase.auth.getUser();
+  const authUser = authData?.user;
+  if (authUser && authUser.id === userId) {
+    const rawUsername =
+      authUser.user_metadata?.username ||
+      authUser.email?.split("@")[0] ||
+      `user_${userId.slice(0, 5)}`;
+    const rawNickname =
+      authUser.user_metadata?.nickname ||
+      rawUsername;
+
+    const fallbackProfile: Partial<UserProfile> = {
+      id: userId,
+      username: rawUsername,
+      nickname: rawNickname,
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: created, error: insertError } = await supabase
+      .from("profiles")
+      .upsert(fallbackProfile)
+      .select()
+      .maybeSingle();
+
+    if (!insertError && created) {
+      return created as UserProfile;
+    }
+
+    return fallbackProfile as UserProfile;
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────

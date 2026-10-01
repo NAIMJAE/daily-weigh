@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -127,6 +127,12 @@ export default function DashboardPage() {
     mode: "create" | "invite";
   }>({ isOpen: false, mode: "create" });
 
+  useEffect(() => {
+    if (mounted && !loading && !user && isConfigured) {
+      router.replace("/auth/login");
+    }
+  }, [mounted, loading, user, isConfigured, router]);
+
   if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
@@ -149,7 +155,7 @@ export default function DashboardPage() {
           </div>
           <h1 className="text-lg font-bold text-[#111111]">Supabase 연결 필요</h1>
           <p className="text-sm text-[#666666]">
-            <code className="bg-[#F4F4F5] px-1.5 py-0.5 rounded text-xs">.env.local</code> 파일에
+            Netlify 환경 변수 또는 <code className="bg-[#F4F4F5] px-1.5 py-0.5 rounded text-xs">.env.local</code> 파일에
             Supabase URL과 Anon Key를 설정해주세요.
           </p>
           <p className="text-xs text-[#999999]">SUPABASE_GUIDE.md를 참고하세요.</p>
@@ -158,10 +164,17 @@ export default function DashboardPage() {
     );
   }
 
-  // 유저 없음 → 로그인으로
+  // 유저 없음 → 로그인 페이지로 이동 중
   if (!user) {
-    router.replace("/auth/login");
-    return null;
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center gap-3">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#FF4D00] animate-pulse" />
+          <span className="font-extrabold text-base text-[#111111] tracking-tight">매일재라</span>
+        </div>
+        <p className="text-xs text-[#999999]">로그인 페이지로 이동 중...</p>
+      </div>
+    );
   }
 
   // 그룹 없음 → 빈 상태 UI

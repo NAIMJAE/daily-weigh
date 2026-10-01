@@ -7,11 +7,13 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { useApp } from "@/context/app-context";
 
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/";
+  const { refreshAuth } = useApp();
 
   const [username, setUsername] = useState("");
   const [nickname, setNickname] = useState("");
@@ -79,7 +81,9 @@ function RegisterForm() {
         console.warn("Profile save warning:", profileErr);
       }
 
-      router.push(redirectPath);
+      // 전역 상태 갱신 후 리다이렉트
+      await refreshAuth();
+      window.location.href = redirectPath;
     } catch (err: any) {
       console.error(err);
       setErrorMsg(

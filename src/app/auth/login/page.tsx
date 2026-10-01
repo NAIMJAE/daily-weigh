@@ -7,11 +7,13 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { useApp } from "@/context/app-context";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get("redirect") || "/";
+  const { refreshAuth } = useApp();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +27,7 @@ function LoginForm() {
 
     try {
       if (!isSupabaseConfigured) {
-        setErrorMsg("Supabase가 설정되지 않았습니다. .env.local 파일을 확인해주세요.");
+        setErrorMsg("Supabase가 설정되지 않았습니다. Netlify 환경 변수를 확인해주세요.");
         return;
       }
 
@@ -39,7 +41,10 @@ function LoginForm() {
       });
 
       if (error) throw error;
-      router.push(redirectPath);
+      
+      // 전역 상태 갱신 후 리다이렉트
+      await refreshAuth();
+      window.location.href = redirectPath;
     } catch (err: any) {
       console.error(err);
       setErrorMsg(
