@@ -140,3 +140,23 @@ input[type=range] {
 button, input, select, textarea {
   touch-action: manipulation;
 }
+
+/* Netlify 플로팅 배지 및 드로어 위젯 숨기기 */
+.netlify-badge,
+[class*="netlify-badge"],
+[class*="netlify-drawer"],
+iframe[src*="netlify"],
+div[data-netlify-drawer],
+div[data-netlify-badge],
+#netlify-badge,
+[id*="netlify-drawer"],
+[id*="netlify-badge"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+  left: -9999px !important;
+}
