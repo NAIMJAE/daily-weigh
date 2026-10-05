@@ -144,7 +144,7 @@ function RegisterForm() {
           />
 
           <div className="pt-3 border-t border-[#E5E5E5]">
-            <p className="text-[11px] text-[#999999] mb-2.5">
+            <p className="text-[13px] text-[#999999] mb-2.5">
               선택 입력 — 나중에 변경 가능
             </p>
             <div className="grid grid-cols-2 gap-2">

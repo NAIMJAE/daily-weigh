@@ -46,7 +46,7 @@ export function Modal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity"
@@ -56,14 +56,14 @@ export function Modal({
       {/* Modal Dialog */}
       <div
         className={cn(
-          "relative w-full bg-white border border-[#E5E5E5] rounded-[10px] shadow-lg z-10 overflow-hidden flex flex-col max-h-[86vh] transition-all",
+          "relative w-full max-w-[440px] bg-white border border-[#E5E5E5] rounded-[10px] shadow-lg z-10 overflow-hidden flex flex-col max-h-[88vh] transition-all",
           maxWidthClasses[maxWidth]
         )}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-4 sm:px-5 py-3.5 sm:py-4 border-b border-[#E5E5E5] shrink-0">
+        <div className="flex items-start justify-between px-4 py-3.5 border-b border-[#E5E5E5] shrink-0">
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-[#111111]">{title}</h2>
+            <h2 className="text-sm font-bold text-[#111111]">{title}</h2>
             {description && (
               <p className="text-xs text-[#666666] mt-0.5">{description}</p>
             )}
@@ -77,7 +77,7 @@ export function Modal({
         </div>
 
         {/* Body with guaranteed bottom spacing */}
-        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain pb-6 sm:pb-6">
+        <div className="p-4 overflow-y-auto overscroll-contain pb-6">
           {children}
         </div>
       </div>

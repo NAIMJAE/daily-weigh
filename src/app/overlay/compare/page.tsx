@@ -4,21 +4,19 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/header";
 import { BottomNav } from "@/components/bottom-nav";
-import { BodyPhotoFeed } from "@/components/body-photo-feed";
+import { GhostOverlay } from "@/components/ghost-overlay";
 import { DailyLogger } from "@/components/daily-logger";
 import { GroupModal } from "@/components/group-modal";
 import { Modal } from "@/components/ui/modal";
 import { useApp } from "@/context/app-context";
 
-export default function OverlayPage() {
+export default function CompareOverlayPage() {
   const router = useRouter();
   const {
     user,
     groups,
     currentGroup,
-    members,
     records,
-    pokes,
     loading,
     mounted,
     isConfigured,
@@ -28,7 +26,6 @@ export default function OverlayPage() {
     setLoggerOpen,
     selectGroup,
     saveDailyRecord,
-    sendPokeMessage,
     createNewGroup,
     logout,
   } = useApp();
@@ -51,7 +48,7 @@ export default function OverlayPage() {
           <span className="w-2.5 h-2.5 rounded-full bg-[#FF4D00] animate-pulse" />
           <span className="font-extrabold text-base text-[#111111] tracking-tight">매일재라</span>
         </div>
-        <p className="text-xs text-[#999999]">눈바디 피드를 불러오는 중...</p>
+        <p className="text-xs text-[#999999]">겹쳐보기 데이터를 불러오는 중...</p>
       </div>
     );
   }
@@ -68,6 +65,8 @@ export default function OverlayPage() {
     );
   }
 
+  const myUserRecords = user ? records.filter((r) => r.user_id === user.id) : [];
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
       {user && currentGroup && (
@@ -83,15 +82,10 @@ export default function OverlayPage() {
         />
       )}
 
-      {/* Main Instagram-style Photo Feed Stream */}
-      <main className="flex-1 w-full p-3.5 space-y-4 pb-28">
-        <BodyPhotoFeed
-          records={records}
-          members={members}
-          currentUser={user}
-          pokes={pokes}
-          onOpenLogger={() => setLoggerOpen(true)}
-          onSendPoke={sendPokeMessage}
+      <main className="flex-1 w-full p-3.5 space-y-3 pb-28">
+        <GhostOverlay
+          records={myUserRecords}
+          onOpenAddPhoto={() => setLoggerOpen(true)}
         />
       </main>
 

@@ -151,11 +151,11 @@ export function DailyLogger({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {/* Target Group Info Badge */}
       {groupName && (
         <div className="flex items-center justify-between px-3 py-2 bg-[#FFF9F6] border border-[#FFD8CC] rounded-[8px] text-xs">
-          <span className="text-[#666666] text-[11px] font-medium">기록 대상 그룹</span>
+          <span className="text-[#666666] text-[13px] font-medium">기록 대상 그룹</span>
           <span className="font-bold text-[#FF4D00] flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#FF4D00]" />
             {groupName}
@@ -184,7 +184,7 @@ export function DailyLogger({
       </div>
 
       {/* Module 1: ⚖️ 체중 입력 */}
-      <div className="p-3.5 sm:p-4 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
+      <div className="p-3.5 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Scale className="w-4 h-4 text-[#FF4D00] shrink-0" />
@@ -193,7 +193,7 @@ export function DailyLogger({
             </span>
           </div>
           {weight && startWeight && (
-            <span className="text-[11px] sm:text-xs font-medium text-[#666666]">
+            <span className="text-xs font-medium text-[#666666]">
               시작({startWeight}kg) 대비{" "}
               <strong className={parseFloat(weight) <= startWeight ? "text-[#FF4D00]" : "text-blue-600"}>
                 {(parseFloat(weight) - startWeight > 0 ? "+" : "")}
@@ -226,7 +226,7 @@ export function DailyLogger({
 
           {/* Quick Delta Chips */}
           <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-            <span className="text-[10px] font-semibold text-[#999999] uppercase mr-1">퀵 조정:</span>
+            <span className="text-[12px] font-semibold text-[#999999] uppercase mr-1">퀵 조정:</span>
             {[-0.5, -0.2, -0.1, 0.1, 0.2, 0.5].map((delta) => (
               <button
                 key={delta}
@@ -241,7 +241,7 @@ export function DailyLogger({
               <button
                 type="button"
                 onClick={() => setWeight(String(startWeight))}
-                className="px-2 py-1 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[6px] text-[11px] font-medium text-[#666666] hover:text-[#111111] hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="px-2 py-1 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[6px] text-[13px] font-medium text-[#666666] hover:text-[#111111] hover:bg-zinc-100 transition-colors cursor-pointer"
               >
                 시작체중 ({startWeight})
               </button>
@@ -251,7 +251,7 @@ export function DailyLogger({
       </div>
 
       {/* Module 2: 📸 눈바디 사진 (클라이언트 자동 압축) */}
-      <div className="p-3.5 sm:p-4 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
+      <div className="p-3.5 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Camera className="w-4 h-4 text-[#FF4D00] shrink-0" />
@@ -259,7 +259,7 @@ export function DailyLogger({
               오늘의 눈바디 사진 (선택)
             </span>
           </div>
-          <span className="text-[11px] text-[#999999]">
+          <span className="text-[12px] text-[#999999]">
             +15P · 겹쳐보기에 활용
           </span>
         </div>
@@ -292,7 +292,7 @@ export function DailyLogger({
               <span>삭제</span>
             </button>
             {photoSizeKb && (
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[10px] rounded-[4px] font-mono">
+              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[12px] rounded-[4px] font-mono">
                 압축 완료 ({photoSizeKb} KB)
               </span>
             )}
@@ -305,14 +305,14 @@ export function DailyLogger({
                 <span className="text-xs font-bold text-[#111111]">
                   사진을 최적화하고 있습니다...
                 </span>
-                <span className="text-[11px] text-[#666666]">
+                <span className="text-[12px] text-[#666666]">
                   용량을 절약하기 위해 가볍게 압축 중입니다.
                 </span>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {/* 1. 카메라 직접 촬영 버튼 (투명 input 100% 직결 오버레이) */}
-                <div className="relative overflow-hidden p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                <div className="relative overflow-hidden p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
                   <input
                     type="file"
                     accept="image/*"
@@ -328,13 +328,13 @@ export function DailyLogger({
                   <span className="text-xs font-bold text-[#111111]">
                     카메라로 촬영
                   </span>
-                  <span className="text-[10px] text-[#999999]">
+                  <span className="text-[11px] text-[#999999]">
                     지금 바로 찰칵 📸
                   </span>
                 </div>
 
                 {/* 2. 앨범에서 선택 버튼 (투명 input 100% 직결 오버레이) */}
-                <div className="relative overflow-hidden p-4 sm:p-5 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                <div className="relative overflow-hidden p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
                   <input
                     type="file"
                     accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif"
@@ -349,13 +349,13 @@ export function DailyLogger({
                   <span className="text-xs font-bold text-[#111111]">
                     앨범에서 선택
                   </span>
-                  <span className="text-[10px] text-[#999999]">
+                  <span className="text-[11px] text-[#999999]">
                     갤러리 사진 불러오기 🖼️
                   </span>
                 </div>
               </div>
             )}
-            <p className="text-[11px] text-[#999999] text-center">
+            <p className="text-[12px] text-[#999999] text-center">
               사진은 자동으로 가볍게 압축되어 빠르게 업로드됩니다.
             </p>
           </div>
@@ -363,7 +363,7 @@ export function DailyLogger({
       </div>
 
       {/* Module 3: 🏃 오늘의 운동 */}
-      <div className="p-3.5 sm:p-4 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
+      <div className="p-3.5 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Dumbbell className="w-4 h-4 text-[#FF4D00] shrink-0" />
@@ -372,7 +372,7 @@ export function DailyLogger({
             </span>
           </div>
           {selectedTags.length > 0 && (
-            <span className="text-[11px] font-semibold text-[#FF4D00]">
+            <span className="text-[13px] font-semibold text-[#FF4D00]">
               {parseInt(workoutMinutes || "0") >= 30 ? "+25P (30분 보너스)" : "+20P"}
             </span>
           )}
@@ -402,7 +402,7 @@ export function DailyLogger({
         {/* Workout Duration Chips */}
         {selectedTags.length > 0 && (
           <div className="pt-2 border-t border-[#E5E5E5] flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[11px] font-semibold text-[#666666]">운동 시간:</span>
+            <span className="text-[13px] font-semibold text-[#666666]">운동 시간:</span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {WORKOUT_TIME_PRESETS.map((mins) => (
                 <button
@@ -448,14 +448,14 @@ export function DailyLogger({
 
       {/* Footer Submit */}
       <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E5E5]">
-        <Button type="button" variant="secondary" onClick={onClose} className="text-xs sm:text-sm">
+        <Button type="button" variant="secondary" onClick={onClose} className="text-xs">
           취소
         </Button>
         <Button
           type="submit"
           variant="primary"
           disabled={!hasAtLeastOne}
-          className="gap-2 px-5 text-xs sm:text-sm"
+          className="gap-2 px-5 text-xs"
         >
           <Check className="w-4 h-4" />
           {hasAtLeastOne ? `기록 저장 (+${calculatedPoints}P)` : "항목을 1개 이상 입력해주세요"}

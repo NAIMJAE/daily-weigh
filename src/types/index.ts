@@ -4,6 +4,7 @@ export interface UserProfile {
   nickname: string;
   start_weight: number | null;
   target_weight: number | null;
+  height?: number | null;
   avatar_url?: string;
   created_at: string;
 }

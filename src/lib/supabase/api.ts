@@ -305,6 +305,26 @@ export async function sendPoke(
   return data as PokeMessage;
 }
 
+export async function updateProfile(
+  userId: string,
+  updates: Partial<UserProfile>
+): Promise<UserProfile | null> {
+  const supabase = createClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("updateProfile error:", error);
+    return null;
+  }
+  return data as UserProfile;
+}
+
 // ─────────────────────────────────────────────────────────
 // Image Upload
 // ─────────────────────────────────────────────────────────
@@ -329,6 +349,33 @@ export async function uploadBodyPhoto(
 
   if (error) {
     console.error("uploadBodyPhoto storage error:", error);
+    return { url: null, error };
+  }
+
+  const { data } = supabase.storage.from("body-photos").getPublicUrl(path);
+  return { url: data.publicUrl, error: null };
+}
+
+export async function uploadAvatarPhoto(
+  userId: string,
+  file: File | Blob,
+  mimeType = "image/webp"
+): Promise<{ url: string | null; error: any }> {
+  const supabase = createClient();
+  if (!supabase) return { url: null, error: new Error("Supabase client not initialized") };
+
+  const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "webp";
+  const path = `avatars/${userId}_${Date.now()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("body-photos")
+    .upload(path, file, {
+      contentType: mimeType,
+      upsert: true,
+    });
+
+  if (error) {
+    console.error("uploadAvatarPhoto storage error:", error);
     return { url: null, error };
   }
 

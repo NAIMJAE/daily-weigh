@@ -130,7 +130,7 @@ export function GroupModal({
               <Share2 className="w-3.5 h-3.5" />
               카톡 단톡방 공유 가이드
             </div>
-            <p className="text-[11px] text-[#666666]">
+            <p className="text-[13px] text-[#666666]">
               친구에게 링크를 전달하면 별도 복잡한 인증 없이 <strong>아이디/닉네임만으로 5초 만에</strong> 그룹에 합류할 수 있습니다.
             </p>
           </div>

@@ -13,21 +13,35 @@ import {
 } from "recharts";
 import { TrendingDown, ArrowUpRight, Check, Activity } from "lucide-react";
 import { DailyRecord, GroupMember } from "@/types";
-import { Badge } from "./ui/badge";
-import { formatDate } from "@/lib/utils";
 
 interface GroupWeightChartProps {
   members: GroupMember[];
   records: DailyRecord[];
 }
 
-// 멤버별 정갈한 차트 색상 팔레트 (Punchy Accent #FF4D00 + Clean Monochromes/Neutrals)
+// 날짜 포맷 (YYYY-MM-DD -> M.D 예: 10.2, 10.3)
+function formatShortDate(dateStr: string): string {
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    return `${month}.${day}`;
+  }
+  return dateStr;
+}
+
+// 멤버별 고대비 교차 색상 팔레트 (인접 인덱스 간 보색/온도 교차로 명확히 구분)
 const MEMBER_COLORS = [
-  "#FF4D00", // 나 (내 기록은 항상 International Orange 강조)
-  "#18181B", // 멤버 2 (Zinc Dark)
-  "#71717A", // 멤버 3 (Zinc Muted)
-  "#2563EB", // 멤버 4 (Royal Blue)
-  "#059669", // 멤버 5 (Emerald)
+  "#2563EB", // 1. 로열 블루 (Cool)
+  "#EF4444", // 2. 레드 (Warm)
+  "#10B981", // 3. 에메랄드 그린 (Fresh)
+  "#F59E0B", // 4. 앰버/골드 (Warm)
+  "#8B5CF6", // 5. 퍼플/바이올렛 (Deep Cool)
+  "#06B6D4", // 6. 시안/민트 (Bright Cool)
+  "#EC4899", // 7. 핑크/마젠타 (Vivid Warm)
+  "#84CC16", // 8. 라임 그린 (Bright)
+  "#6366F1", // 9. 인디고 (Deep)
+  "#F97316", // 10. 오렌지 (Warm)
 ];
 
 export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
@@ -70,7 +84,7 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
     return sortedDates.map((date) => {
       const dataPoint: Record<string, any> = {
         date,
-        formattedDate: formatDate(date),
+        formattedDate: formatShortDate(date),
       };
 
       members.forEach((m) => {
@@ -96,25 +110,15 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
   }, [sortedDates, members, records, memberStartWeights, chartMode]);
 
   return (
-    <div className="p-4 sm:p-5 bg-white border border-[#E5E5E5] rounded-[8px] space-y-4 sm:space-y-5">
-      {/* Header & Mode Switcher */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-[#111111] flex items-center gap-1.5 whitespace-nowrap">
-              <TrendingDown className="w-4 h-4 text-[#FF4D00] shrink-0" />
-              그룹 체중 변화 겹침 그래프
-            </h3>
-            <Badge variant="default">Multi-line Race</Badge>
-          </div>
-          <p className="text-xs text-[#666666] mt-0.5">
-            {chartMode === "delta"
-              ? "모두의 시작점을 0.0kg 기준선에 맞추어 실제 감량 추세를 직관적으로 비교합니다."
-              : "멤버들의 실제 일자별 체중(kg) 추세선을 겹쳐서 확인합니다."}
-          </p>
-        </div>
+    <div className="p-4 bg-white border border-[#E5E5E5] rounded-[8px] space-y-4">
+      {/* Header & Mode Switcher (제목 좌측, 토글 버튼 우측 1행 정렬) */}
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-bold text-[#111111] flex items-center gap-1.5 whitespace-nowrap">
+          <TrendingDown className="w-4 h-4 text-[#FF4D00] shrink-0" />
+          체중 변화 그래프
+        </h3>
 
-        {/* Tab Toggle */}
+        {/* Tab Toggle (제목 우측 이동, 변화량 / 절대체중 간소화) */}
         <div className="inline-flex p-0.5 bg-[#F4F4F5] border border-[#E5E5E5] rounded-[6px] shrink-0">
           <button
             type="button"
@@ -125,7 +129,7 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
                 : "text-[#666666] hover:text-[#111111]"
             }`}
           >
-            변화량 레이스 (Δkg) 🔥
+            변화량
           </button>
           <button
             type="button"
@@ -136,72 +140,45 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
                 : "text-[#666666] hover:text-[#111111]"
             }`}
           >
-            절대 체중 (kg)
+            절대체중
           </button>
         </div>
       </div>
 
-      {/* Member Legends (Horizontal scroll on narrow mobile) */}
-      <div className="flex items-center gap-2 sm:gap-2.5 pt-0.5 overflow-x-auto pb-1 no-scrollbar">
+      {/* Member Legends (색상 점 + 닉네임만 표시, 줄바꿈 wrap으로 스크롤 방지) */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
         {members.map((m, idx) => {
           const color = MEMBER_COLORS[idx % MEMBER_COLORS.length];
-          const startWeight = memberStartWeights.get(m.user_id);
-          
-          // 최신 체중 기록 찾기
-          const userRecs = records
-            .filter((r) => r.user_id === m.user_id && r.weight !== null)
-            .sort((a, b) => b.record_date.localeCompare(a.record_date));
-          const latestWeight = userRecs[0]?.weight ?? null;
-          const diff =
-            latestWeight && startWeight
-              ? (latestWeight - startWeight).toFixed(1)
-              : null;
-
           return (
             <div
               key={m.id}
-              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[6px] text-xs whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[6px] text-xs shrink-0"
             >
               <span
                 className="w-2.5 h-2.5 rounded-full inline-block shrink-0"
                 style={{ backgroundColor: color }}
               />
-              <span className="font-semibold text-[#111111] truncate max-w-[90px] sm:max-w-[120px]">
+              <span className="font-medium text-[#111111] truncate max-w-[110px]">
                 {m.profile?.nickname ?? "멤버"}
               </span>
-              {latestWeight && (
-                <span className="text-[11px] text-[#666666] shrink-0 font-mono">
-                  {latestWeight}kg
-                  {diff && (
-                    <strong
-                      className={`ml-1 font-sans ${
-                        parseFloat(diff) <= 0 ? "text-[#FF4D00]" : "text-blue-600"
-                      }`}
-                    >
-                      ({parseFloat(diff) > 0 ? "+" : ""}
-                      {diff}kg)
-                    </strong>
-                  )}
-                </span>
-              )}
             </div>
           );
         })}
       </div>
 
       {/* Recharts Canvas */}
-      <div className="w-full h-64 sm:h-72">
+      <div className="w-full h-64">
         {chartData.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-xs text-[#999999] border border-dashed border-[#E5E5E5] rounded-[8px] p-4 text-center">
             <Activity className="w-6 h-6 text-[#D4D4D8] mb-1.5" />
             <span className="font-medium text-[#111111]">아직 기록된 체중 데이터가 없습니다</span>
-            <span className="text-[11px] text-[#999999] mt-0.5">상단의 [오늘 기록] 버튼으로 첫 체중을 입력해보세요.</span>
+            <span className="text-[13px] text-[#999999] mt-0.5">상단의 [오늘 기록] 버튼으로 첫 체중을 입력해보세요.</span>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 10, right: 10, left: -18, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               {/* x, y축에 맞춘 연한 가로/세로 구분선 */}
               <CartesianGrid
@@ -220,7 +197,7 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
                   label={{
                     value: "0kg 기준",
                     fill: "#999999",
-                    fontSize: 10,
+                    fontSize: 12,
                     position: "insideTopRight",
                   }}
                 />
@@ -229,27 +206,39 @@ export function GroupWeightChart({ members, records }: GroupWeightChartProps) {
               <XAxis
                 dataKey="formattedDate"
                 stroke="#A1A1AA"
-                fontSize={11}
+                fontSize={12}
                 tickLine={false}
                 axisLine={{ stroke: "#E5E5E5" }}
               />
               <YAxis
                 stroke="#A1A1AA"
-                fontSize={11}
+                fontSize={12}
                 tickLine={false}
                 axisLine={{ stroke: "#E5E5E5" }}
-                domain={chartMode === "delta" ? ["auto", "auto"] : ["dataMin - 1", "dataMax + 1"]}
-                tickFormatter={(v) => (chartMode === "delta" ? `${v > 0 ? "+" : ""}${v}` : `${v}`)}
+                width={48}
+                domain={
+                  chartMode === "delta"
+                    ? ["auto", "auto"]
+                    : ["dataMin - 1", "dataMax + 1"]
+                }
+                tickFormatter={(v) => {
+                  const num = typeof v === "number" ? v : parseFloat(v);
+                  if (isNaN(num)) return `${v}`;
+                  const formatted = parseFloat(num.toFixed(2)).toString();
+                  return chartMode === "delta"
+                    ? `${num > 0 ? "+" : ""}${formatted}`
+                    : formatted;
+                }}
               />
 
               <Tooltip
                 content={({ active, payload, label }) => {
                   if (active && payload && payload.length) {
                     return (
-                      <div className="bg-white border border-[#E5E5E5] p-2.5 sm:p-3 rounded-[8px] shadow-md text-xs space-y-1.5 z-50">
+                      <div className="bg-white border border-[#E5E5E5] p-2.5 rounded-[8px] shadow-md text-xs space-y-1.5 z-50">
                         <div className="font-bold text-[#111111] pb-1 border-b border-[#E5E5E5] flex items-center justify-between gap-4">
                           <span>{label}</span>
-                          <span className="text-[10px] text-[#999999] font-normal">
+                          <span className="text-[12px] text-[#999999] font-normal">
                             {chartMode === "delta" ? "기준 대비 변화량" : "실제 체중"}
                           </span>
                         </div>

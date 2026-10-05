@@ -9,6 +9,7 @@ create table if not exists public.profiles (
   username text unique not null,
   nickname text not null,
   avatar_url text,
+  height numeric(5, 1),
   start_weight numeric(5, 2),
   target_weight numeric(5, 2),
   created_at timestamp with time zone default now()

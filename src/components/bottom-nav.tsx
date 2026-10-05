@@ -21,7 +21,7 @@ export function BottomNav({ onOpenLogger }: BottomNavProps) {
     },
     {
       href: "/overlay",
-      label: "겹쳐보기",
+      label: "눈바디",
       icon: Eye,
       isActive: pathname === "/overlay",
     },
@@ -41,8 +41,8 @@ export function BottomNav({ onOpenLogger }: BottomNavProps) {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E5E5] px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(0,0,0,0.04)] select-none">
-      <div className="max-w-md mx-auto flex items-center justify-around relative">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-40 bg-white/95 backdrop-blur-md border-t border-[#E5E5E5] px-2 pt-1 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(0,0,0,0.06)] select-none">
+      <div className="w-full flex items-center justify-around relative">
         {/* 1. 홈 / 대시보드 */}
         <Link
           href="/"
@@ -51,18 +51,18 @@ export function BottomNav({ onOpenLogger }: BottomNavProps) {
           }`}
         >
           <LayoutDashboard className="w-4 h-4" />
-          <span className="text-[10px] tracking-tight mt-1">대시보드</span>
+          <span className="text-[12px] tracking-tight mt-1">대시보드</span>
         </Link>
 
-        {/* 2. 겹쳐보기 */}
+        {/* 2. 눈바디 */}
         <Link
           href="/overlay"
           className={`flex flex-col items-center justify-center py-1 px-2 transition-all cursor-pointer min-w-[56px] min-h-[44px] active:scale-95 ${
-            pathname === "/overlay" ? "text-[#FF4D00] font-bold" : "text-[#666666] hover:text-[#111111]"
+            pathname?.startsWith("/overlay") ? "text-[#FF4D00] font-bold" : "text-[#666666] hover:text-[#111111]"
           }`}
         >
           <Eye className="w-4 h-4" />
-          <span className="text-[10px] tracking-tight mt-1">겹쳐보기</span>
+          <span className="text-[12px] tracking-tight mt-1">눈바디</span>
         </Link>
 
         {/* 3. 중앙 액션: 오늘 1초 기록 (+) */}
@@ -85,10 +85,10 @@ export function BottomNav({ onOpenLogger }: BottomNavProps) {
           }`}
         >
           <Trophy className="w-4 h-4" />
-          <span className="text-[10px] tracking-tight mt-1">리더보드</span>
+          <span className="text-[12px] tracking-tight mt-1">리더보드</span>
         </Link>
 
-        {/* 5. 내 그룹 */}
+        {/* 5. 마이페이지 */}
         <Link
           href="/group"
           className={`flex flex-col items-center justify-center py-1 px-2 transition-all cursor-pointer min-w-[56px] min-h-[44px] active:scale-95 ${
@@ -96,7 +96,7 @@ export function BottomNav({ onOpenLogger }: BottomNavProps) {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span className="text-[10px] tracking-tight mt-1">내 그룹</span>
+          <span className="text-[12px] tracking-tight mt-1">마이페이지</span>
         </Link>
       </div>
     </nav>

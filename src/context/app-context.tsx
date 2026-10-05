@@ -25,6 +25,8 @@ import {
   addOwnerToGroup,
   joinGroup,
   uploadBodyPhoto,
+  uploadAvatarPhoto,
+  updateProfile,
 } from "@/lib/supabase/api";
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
@@ -57,6 +59,8 @@ interface AppContextType {
   selectGroup: (group: Group) => Promise<void>;
   saveDailyRecord: (recordData: Partial<DailyRecord>) => Promise<boolean>;
   sendPokeMessage: (targetUserId: string, message: string) => Promise<boolean>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
+  uploadAvatar: (file: File | Blob) => Promise<string | null>;
   createNewGroup: (name: string, penaltyRule: string) => Promise<Group | null>;
   joinExistingGroup: (group: Group) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -482,6 +486,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [user, loadGroupData, showToast]
   );
 
+  const updateUserProfile = useCallback(
+    async (updates: Partial<UserProfile>): Promise<boolean> => {
+      if (!user) return false;
+      try {
+        const updated = await updateProfile(user.id, updates);
+        if (updated) {
+          setUser(updated);
+          setMembers((prev) =>
+            prev.map((m) =>
+              m.user_id === user.id
+                ? { ...m, profile: { ...m.profile, ...updated } }
+                : m
+            )
+          );
+          showToast("✨ 프로필 정보가 성공적으로 수정되었습니다!", "success");
+          return true;
+        } else {
+          // Fallback optimistic update
+          const optimisticUser = { ...user, ...updates };
+          setUser(optimisticUser);
+          setMembers((prev) =>
+            prev.map((m) =>
+              m.user_id === user.id
+                ? { ...m, profile: { ...m.profile, ...optimisticUser } }
+                : m
+            )
+          );
+          showToast("✨ 프로필이 업데이트되었습니다!", "success");
+          return true;
+        }
+      } catch (err: any) {
+        console.error("updateUserProfile error:", err);
+        showToast("⚠️ 프로필 수정 중 오류가 발생했습니다.", "error");
+        return false;
+      }
+    },
+    [user, showToast]
+  );
+
+  const uploadAvatar = useCallback(
+    async (file: File | Blob): Promise<string | null> => {
+      if (!user) return null;
+      try {
+        const { url, error } = await uploadAvatarPhoto(user.id, file);
+        if (error || !url) {
+          showToast("⚠️ 프로필 사진 업로드에 실패했습니다.", "error");
+          return null;
+        }
+        return url;
+      } catch (err: any) {
+        console.error("uploadAvatar error:", err);
+        showToast("⚠️ 프로필 사진 업로드 중 오류가 발생했습니다.", "error");
+        return null;
+      }
+    },
+    [user, showToast]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -504,6 +566,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectGroup,
         saveDailyRecord,
         sendPokeMessage,
+        updateUserProfile,
+        uploadAvatar,
         createNewGroup,
         joinExistingGroup,
         logout,

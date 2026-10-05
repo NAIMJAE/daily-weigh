@@ -68,6 +68,137 @@ export function isDateInCurrentWeek(dateStr: string): boolean {
 }
 
 /**
+ * 주차 계산 헬퍼 (월요일 시작 기준)
+ */
+export function getMondayOfWeek(d: Date = new Date()): Date {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+export function getSundayOfWeek(monday: Date): Date {
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return sunday;
+}
+
+/**
+ * 주차 레이블 생성 (예: "26년 10월 1주차")
+ */
+export function getWeekPeriodInfo(offsetWeeks: number = 0) {
+  const now = new Date();
+  const baseMonday = getMondayOfWeek(now);
+  
+  // 오프셋 적용
+  const targetMonday = new Date(baseMonday);
+  targetMonday.setDate(baseMonday.getDate() + offsetWeeks * 7);
+  const targetSunday = getSundayOfWeek(targetMonday);
+
+  const startStr = getTodayDateString(targetMonday);
+  const endStr = getTodayDateString(targetSunday);
+
+  const year2Digit = String(targetMonday.getFullYear()).slice(2);
+  const month = targetMonday.getMonth() + 1;
+  const weekNum = Math.ceil(targetMonday.getDate() / 7);
+
+  const startM = targetMonday.getMonth() + 1;
+  const startD = String(targetMonday.getDate()).padStart(2, "0");
+  const endM = targetSunday.getMonth() + 1;
+  const endD = String(targetSunday.getDate()).padStart(2, "0");
+
+  return {
+    label: `${year2Digit}년 ${month}월 ${weekNum}주차`,
+    rangeText: `${startM}.${startD} ~ ${endM}.${endD}`,
+    startStr,
+    endStr,
+    isCurrent: offsetWeeks === 0,
+  };
+}
+
+/**
+ * 월별 레이블 생성 (예: "2026년 10월")
+ */
+export function getMonthPeriodInfo(offsetMonths: number = 0) {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() + offsetMonths, 1);
+  const year = target.getFullYear();
+  const month = target.getMonth() + 1;
+
+  const startStr = `${year}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endStr = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+  return {
+    label: `${year}년 ${month}월`,
+    rangeText: `${month}.01 ~ ${month}.${lastDay}`,
+    startStr,
+    endStr,
+    isCurrent: offsetMonths === 0,
+  };
+}
+
+/**
+ * 연도별 레이블 생성 (예: "2026년")
+ */
+export function getYearPeriodInfo(offsetYears: number = 0) {
+  const now = new Date();
+  const year = now.getFullYear() + offsetYears;
+
+  return {
+    label: `${year}년`,
+    rangeText: `01.01 ~ 12.31`,
+    startStr: `${year}-01-01`,
+    endStr: `${year}-12-31`,
+    isCurrent: offsetYears === 0,
+  };
+}
+
+/**
+ * 특정 기간 내 사용자의 포인트 합산 계산
+ */
+export function calculatePeriodPoints(
+  records: { user_id: string; record_date: string; points_earned?: number }[],
+  userId: string,
+  startStr: string,
+  endStr: string
+): number {
+  return records
+    .filter(
+      (r) =>
+        r.user_id === userId &&
+        r.record_date >= startStr &&
+        r.record_date <= endStr
+    )
+    .reduce((sum, r) => sum + (Number(r.points_earned) || 0), 0);
+}
+
+/**
+ * 특정 기간 내 사용자의 출석(기록) 일수 계산
+ */
+export function calculatePeriodAttendanceDays(
+  records: { user_id: string; record_date: string }[],
+  userId: string,
+  startStr: string,
+  endStr: string
+): number {
+  const uniqueDates = new Set(
+    records
+      .filter(
+        (r) =>
+          r.user_id === userId &&
+          r.record_date >= startStr &&
+          r.record_date <= endStr
+      )
+      .map((r) => r.record_date)
+  );
+  return uniqueDates.size;
+}
+
+/**
  * 사용자의 daily_records를 기반으로 실시간 주간 열정 포인트 계산
  */
 export function calculateWeeklyPoints(

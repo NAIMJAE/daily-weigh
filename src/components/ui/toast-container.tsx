@@ -29,7 +29,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
           <div
             key={toast.id}
             role="alert"
-            className={`pointer-events-auto w-full p-3.5 sm:p-4 rounded-[10px] shadow-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-200 flex items-start gap-3 ${
+            className={`pointer-events-auto w-full p-3.5 rounded-[10px] shadow-2xl border transition-all animate-in fade-in slide-in-from-top-4 duration-200 flex items-start gap-3 ${
               isError
                 ? "bg-[#1C1010] text-[#FFECEC] border-red-500/60 shadow-red-950/40"
                 : isWarning
@@ -51,12 +51,12 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
             {/* 본문 메시지 & 에러 코드 */}
             <div className="flex-1 min-w-0 space-y-1">
-              <div className="text-xs sm:text-sm font-semibold leading-snug break-words">
+              <div className="text-xs font-semibold leading-snug break-words">
                 {toast.message}
               </div>
 
               {toast.code && (
-                <div className="text-[11px] font-mono bg-black/50 px-2 py-1 rounded text-red-300 border border-red-500/30 break-all select-all">
+                <div className="text-[13px] font-mono bg-black/50 px-2 py-1 rounded text-red-300 border border-red-500/30 break-all select-all">
                   <code>{toast.code}</code>
                 </div>
               )}
