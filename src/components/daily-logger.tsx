@@ -13,7 +13,7 @@ interface DailyLoggerProps {
   currentRecord?: DailyRecord | null;
   startWeight?: number | null;
   groupName?: string;
-  onSave: (recordData: Partial<DailyRecord>) => void;
+  onSave: (recordData: Partial<DailyRecord>) => Promise<boolean> | void;
   onClose: () => void;
 }
 
@@ -74,6 +74,7 @@ export function DailyLogger({
   );
   
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
   const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(
     draft?.photoSizeKb ?? null
@@ -116,13 +117,10 @@ export function DailyLogger({
   const isAllClear = hasWeight && hasPhoto && hasWorkout;
   if (isAllClear) calculatedPoints += 15;
 
-  const completedCount = [hasWeight, hasPhoto, hasWorkout].filter(Boolean).length;
-
-  // 사진 업로드 및 자동 압축
+  // 사진 업로드 및 자동 압축 (비동기 디코딩 보장)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
-      // 카메라 취소 또는 선택하지 않고 닫은 경우 조용히 리턴
       return;
     }
 
@@ -131,7 +129,7 @@ export function DailyLogger({
     setIsCompressing(true);
 
     try {
-      const result = await compressImage(file, 960, 0.78);
+      const result = await compressImage(file, 960, 0.8);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
       showToast(
@@ -176,23 +174,30 @@ export function DailyLogger({
     onClose();
   };
 
-  const handleSubmit = () => {
-    if (!hasAtLeastOne) return;
+  const handleSubmit = async () => {
+    if (!hasAtLeastOne || isSaving) return;
 
-    onSave({
-      weight: weight ? parseFloat(weight) : null,
-      photo_url: photoUrl,
-      workout_tags: selectedTags.length > 0 ? selectedTags : null,
-      workout_minutes: selectedTags.length > 0 && workoutMinutes ? parseInt(workoutMinutes) : null,
-      memo: memo.trim() || null,
-      points_earned: calculatedPoints,
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        weight: weight ? parseFloat(weight) : null,
+        photo_url: photoUrl,
+        workout_tags: selectedTags.length > 0 ? selectedTags : null,
+        workout_minutes: selectedTags.length > 0 && workoutMinutes ? parseInt(workoutMinutes) : null,
+        memo: memo.trim() || null,
+        points_earned: calculatedPoints,
+      });
 
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("daily_logger_draft");
-      sessionStorage.removeItem("daily_logger_open");
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("daily_logger_draft");
+        sessionStorage.removeItem("daily_logger_open");
+      }
+      onClose();
+    } catch (err) {
+      console.error("Submit daily record error:", err);
+    } finally {
+      setIsSaving(false);
     }
-    onClose();
   };
 
   return (
@@ -295,7 +300,7 @@ export function DailyLogger({
         </div>
       </div>
 
-      {/* Module 2: 📸 눈바디 사진 (클라이언트 자동 압축) */}
+      {/* Module 2: 📸 눈바디 사진 (클라이언트 자동 압축 & 프리뷰) */}
       <div className="p-3.5 bg-white border border-[#E5E5E5] rounded-[8px] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -311,18 +316,22 @@ export function DailyLogger({
 
         {/* 압축 또는 파일 에러 표시 */}
         {compressError && (
-          <div className="p-2.5 bg-red-50 border border-red-200 rounded-[6px] text-xs text-red-600">
+          <div className="p-2.5 bg-red-50 border border-red-200 rounded-[6px] text-xs text-red-600 font-medium">
             {compressError}
           </div>
         )}
 
         {photoUrl ? (
-          <div className="relative w-full aspect-[4/3] max-h-56 bg-[#FAFAFA] border border-[#E5E5E5] rounded-[8px] overflow-hidden flex items-center justify-center">
+          <div className="relative w-full aspect-[4/3] max-h-60 bg-zinc-950 border border-[#E5E5E5] rounded-[8px] overflow-hidden flex items-center justify-center shadow-inner">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={photoUrl}
               alt="눈바디 프리뷰"
               className="w-full h-full object-contain"
+              onError={() => {
+                setCompressError("이미지를 렌더링할 수 없습니다. 다시 촬영해주세요.");
+                setPhotoUrl(null);
+              }}
             />
             <button
               type="button"
@@ -331,14 +340,14 @@ export function DailyLogger({
                 setPhotoSizeKb(null);
                 setCompressError(null);
               }}
-              className="absolute top-2 right-2 p-1.5 bg-black/70 text-white rounded-[6px] hover:bg-black transition-colors cursor-pointer flex items-center gap-1 text-xs z-40"
+              className="absolute top-2 right-2 px-2.5 py-1.5 bg-black/80 hover:bg-black text-white rounded-[6px] transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold z-40 backdrop-blur-xs"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>삭제</span>
+              <Trash2 className="w-3.5 h-3.5 text-red-400" />
+              <span>다시 찍기 / 삭제</span>
             </button>
             {photoSizeKb && (
-              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/70 text-white text-[12px] rounded-[4px] font-mono">
-                압축 완료 ({photoSizeKb} KB)
+              <span className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/80 text-white text-[11px] rounded-[4px] font-mono backdrop-blur-xs">
+                📸 압축 완료 ({photoSizeKb} KB)
               </span>
             )}
           </div>
@@ -351,48 +360,56 @@ export function DailyLogger({
                   사진을 최적화하고 있습니다...
                 </span>
                 <span className="text-[12px] text-[#666666]">
-                  카메라 사진을 가볍게 압축 중입니다.
+                  카메라 사진을 선명하고 가볍게 압축 중입니다.
                 </span>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {/* 1. 카메라 직접 촬영 버튼 */}
-                <label className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95">
+                <label
+                  htmlFor="camera-upload-input"
+                  className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                >
                   <input
+                    id="camera-upload-input"
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="hidden"
+                    className="sr-only"
                     onChange={handlePhotoUpload}
                     disabled={isCompressing}
                   />
-                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center pointer-events-none">
                     <Camera className="w-4 h-4 text-[#FF4D00]" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111]">
+                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
                     카메라로 촬영
                   </span>
-                  <span className="text-[11px] text-[#999999]">
+                  <span className="text-[11px] text-[#999999] pointer-events-none">
                     지금 바로 찰칵 📸
                   </span>
                 </label>
 
                 {/* 2. 앨범에서 선택 버튼 */}
-                <label className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95">
+                <label
+                  htmlFor="gallery-upload-input"
+                  className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                >
                   <input
+                    id="gallery-upload-input"
                     type="file"
                     accept="image/*"
-                    className="hidden"
+                    className="sr-only"
                     onChange={handlePhotoUpload}
                     disabled={isCompressing}
                   />
-                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center pointer-events-none">
                     <ImageIcon className="w-4 h-4 text-zinc-700" />
                   </div>
-                  <span className="text-xs font-bold text-[#111111]">
+                  <span className="text-xs font-bold text-[#111111] pointer-events-none">
                     앨범에서 선택
                   </span>
-                  <span className="text-[11px] text-[#999999]">
+                  <span className="text-[11px] text-[#999999] pointer-events-none">
                     갤러리 사진 불러오기 🖼️
                   </span>
                 </label>
@@ -491,18 +508,26 @@ export function DailyLogger({
 
       {/* Footer Submit */}
       <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E5E5]">
-        <Button type="button" variant="secondary" onClick={handleClose} className="text-xs">
+        <Button type="button" variant="secondary" onClick={handleClose} disabled={isSaving} className="text-xs">
           취소
         </Button>
         <Button
           type="button"
           variant="primary"
           onClick={handleSubmit}
-          disabled={!hasAtLeastOne}
+          disabled={!hasAtLeastOne || isSaving}
           className="gap-2 px-5 text-xs"
         >
-          <Check className="w-4 h-4" />
-          {hasAtLeastOne ? `기록 저장 (+${calculatedPoints}P)` : "항목을 1개 이상 입력해주세요"}
+          {isSaving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Check className="w-4 h-4" />
+          )}
+          {isSaving
+            ? "저장 중..."
+            : hasAtLeastOne
+            ? `기록 저장 (+${calculatedPoints}P)`
+            : "항목을 1개 이상 입력해주세요"}
         </Button>
       </div>
     </div>
