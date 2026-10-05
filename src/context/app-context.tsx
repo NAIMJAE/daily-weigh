@@ -21,6 +21,7 @@ import {
   upsertDailyRecord,
   updateMemberStats,
   sendPoke,
+  deletePoke,
   createGroup,
   addOwnerToGroup,
   joinGroup,
@@ -58,7 +59,8 @@ interface AppContextType {
   ) => void;
   selectGroup: (group: Group) => Promise<void>;
   saveDailyRecord: (recordData: Partial<DailyRecord>) => Promise<boolean>;
-  sendPokeMessage: (targetUserId: string, message: string) => Promise<boolean>;
+  sendPokeMessage: (targetUserId: string, message: string, recordId?: string) => Promise<boolean>;
+  deletePokeMessage: (pokeId: string) => Promise<boolean>;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   uploadAvatar: (file: File | Blob) => Promise<string | null>;
   createNewGroup: (name: string, penaltyRule: string) => Promise<Group | null>;
@@ -449,10 +451,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const sendPokeMessage = useCallback(
-    async (targetUserId: string, message: string) => {
+    async (targetUserId: string, message: string, recordId?: string) => {
       if (!user || !currentGroup) return false;
       const targetMember = members.find((m) => m.user_id === targetUserId);
-      const newPoke = await sendPoke(currentGroup.id, user.id, targetUserId, message);
+      const newPoke = await sendPoke(currentGroup.id, user.id, targetUserId, message, recordId);
       if (newPoke) {
         const enriched: PokeMessage = {
           ...newPoke,
@@ -460,12 +462,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
           receiver_profile: targetMember?.profile,
         };
         setPokes((prev) => [enriched, ...prev]);
-        showToast(`🌶️ '${targetMember?.profile?.nickname}'님에게 독설을 전송했습니다!`);
+        showToast(
+          recordId ? "댓글이 등록되었습니다! 💬" : `🌶️ '${targetMember?.profile?.nickname}'님에게 독설을 전송했습니다!`
+        );
         return true;
       }
       return false;
     },
     [user, currentGroup, members, showToast]
+  );
+
+  const deletePokeMessage = useCallback(
+    async (pokeId: string) => {
+      const success = await deletePoke(pokeId);
+      if (success) {
+        setPokes((prev) => prev.filter((p) => p.id !== pokeId));
+        showToast("댓글이 삭제되었습니다.", "success");
+        return true;
+      }
+      return false;
+    },
+    [showToast]
   );
 
   const createNewGroup = useCallback(
@@ -608,6 +625,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         selectGroup,
         saveDailyRecord,
         sendPokeMessage,
+        deletePokeMessage,
         updateUserProfile,
         uploadAvatar,
         createNewGroup,

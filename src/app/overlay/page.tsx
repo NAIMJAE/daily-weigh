@@ -29,6 +29,7 @@ export default function OverlayPage() {
     selectGroup,
     saveDailyRecord,
     sendPokeMessage,
+    deletePokeMessage,
     createNewGroup,
     logout,
   } = useApp();
@@ -92,6 +93,7 @@ export default function OverlayPage() {
           pokes={pokes}
           onOpenLogger={() => setLoggerOpen(true)}
           onSendPoke={sendPokeMessage}
+          onDeletePoke={deletePokeMessage}
         />
       </main>
 

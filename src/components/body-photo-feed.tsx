@@ -25,7 +25,39 @@ interface BodyPhotoFeedProps {
   currentUser: UserProfile;
   pokes?: PokeMessage[];
   onOpenLogger: () => void;
-  onSendPoke: (targetUserId: string, message: string) => Promise<boolean>;
+  onSendPoke: (targetUserId: string, message: string, recordId?: string) => Promise<boolean>;
+  onDeletePoke?: (pokeId: string) => Promise<boolean>;
+}
+
+// Poke 메시지에서 [post:UUID] 태그를 분리 파싱
+function parsePokeComment(p: PokeMessage): {
+  id: string;
+  sender_id: string;
+  sender_name: string;
+  message: string;
+  record_id: string | null;
+  created_at: string;
+} {
+  const rawMsg = p.message || "";
+  const match = rawMsg.match(/^\[post:([a-zA-Z0-9_-]+)\]\s*([\s\S]*)$/);
+  if (match) {
+    return {
+      id: p.id,
+      sender_id: p.sender_id,
+      sender_name: p.sender_profile?.nickname || "친구",
+      message: match[2],
+      record_id: match[1],
+      created_at: p.created_at,
+    };
+  }
+  return {
+    id: p.id,
+    sender_id: p.sender_id,
+    sender_name: p.sender_profile?.nickname || "친구",
+    message: rawMsg,
+    record_id: p.record_id || null,
+    created_at: p.created_at,
+  };
 }
 
 const QUICK_SPICY_COMMENTS = [
@@ -65,6 +97,7 @@ export function BodyPhotoFeed({
   pokes = [],
   onOpenLogger,
   onSendPoke,
+  onDeletePoke,
 }: BodyPhotoFeedProps) {
   // 눈바디 사진이 등록된 기록만 필터링 (최신 날짜순)
   const photoPosts = records
@@ -134,7 +167,8 @@ export function BodyPhotoFeed({
     setIsSending((prev) => ({ ...prev, [postId]: true }));
 
     try {
-      const success = await onSendPoke(targetUserId, text);
+      // 해당 피드 게시글(postId)을 전달하여 해당 글에만 격리 귀속
+      const success = await onSendPoke(targetUserId, text, postId);
       if (success) {
         // 즉시 로컬 댓글 목록에 추가
         setLocalComments((prev) => {
@@ -212,19 +246,13 @@ export function BodyPhotoFeed({
               ? (post.weight - startWeight).toFixed(1)
               : null;
 
-          // 이 작성자에게 달린 독설/자극 댓글들 (DB pokes + 방금 작성한 로컬 댓글 결합)
-          const dbPokes = pokes
-            .filter((p) => p.receiver_id === post.user_id)
-            .map((p) => ({
-              id: p.id,
-              sender_id: p.sender_id,
-              sender_name: p.sender_profile?.nickname || "친구",
-              message: p.message,
-              created_at: p.created_at,
-            }));
+          // 이 게시글(post.id)에 전용으로 달린 댓글들만 정확히 필터링 (다른 피드와 댓글 격리)
+          const dbComments = pokes
+            .map(parsePokeComment)
+            .filter((c) => c.record_id === post.id);
 
           const postLocal = localComments[post.id] || [];
-          const allComments = [...postLocal, ...dbPokes];
+          const allComments = [...postLocal, ...dbComments];
           const isCommentsOpen = expandedComments[post.id] ?? false;
           const displayedComments = isCommentsOpen
             ? allComments
@@ -433,9 +461,21 @@ export function BodyPhotoFeed({
                             </span>
                             <span className="text-[#333333]">"{comment.message}"</span>
                           </div>
-                          <span className="text-[10px] text-[#999999] shrink-0 font-mono mt-0.5">
-                            {formatRelativeTime(comment.created_at)}
-                          </span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[10px] text-[#999999] font-mono mt-0.5">
+                              {formatRelativeTime(comment.created_at)}
+                            </span>
+                            {isMyComment && onDeletePoke && !comment.id.startsWith("local-") && (
+                              <button
+                                type="button"
+                                onClick={() => onDeletePoke(comment.id)}
+                                className="text-[10px] text-[#999999] hover:text-red-500 cursor-pointer ml-0.5"
+                                title="댓글 삭제"
+                              >
+                                삭제
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

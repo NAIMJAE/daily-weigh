@@ -268,7 +268,7 @@ export async function fetchGroupPokes(groupId: string): Promise<PokeMessage[]> {
     .select("*")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(200);
   if (error) { console.error("fetchGroupPokes:", error); return []; }
   // sender/receiver 프로필을 별도로 로드 (RLS 문제 회피용)
   const pokes = (data ?? []) as PokeMessage[];
@@ -292,17 +292,41 @@ export async function sendPoke(
   groupId: string,
   senderId: string,
   receiverId: string,
-  message: string
+  message: string,
+  recordId?: string
 ): Promise<PokeMessage | null> {
   const supabase = createClient();
   if (!supabase) return null;
+
+  // 피드 개별 게시글 댓글인 경우 [post:RECORD_ID] 메타데이터를 결합하여 다른 피드와 격리
+  const formattedMessage = recordId ? `[post:${recordId}] ${message}` : message;
+
+  const payload: any = {
+    group_id: groupId,
+    sender_id: senderId,
+    receiver_id: receiverId,
+    message: formattedMessage,
+  };
+
   const { data, error } = await supabase
     .from("pokes")
-    .insert({ group_id: groupId, sender_id: senderId, receiver_id: receiverId, message })
+    .insert(payload)
     .select()
     .single();
+
   if (error) { console.error("sendPoke:", error); return null; }
   return data as PokeMessage;
+}
+
+export async function deletePoke(pokeId: string): Promise<boolean> {
+  const supabase = createClient();
+  if (!supabase) return false;
+  const { error } = await supabase.from("pokes").delete().eq("id", pokeId);
+  if (error) {
+    console.error("deletePoke error:", error);
+    return false;
+  }
+  return true;
 }
 
 export async function updateProfile(

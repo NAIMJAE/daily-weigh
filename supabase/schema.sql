@@ -64,6 +64,7 @@ create table if not exists public.pokes (
   group_id uuid references public.groups(id) on delete cascade,
   sender_id uuid references public.profiles(id) on delete cascade,
   receiver_id uuid references public.profiles(id) on delete cascade,
+  record_id uuid references public.daily_records(id) on delete cascade,
   message text not null,
   created_at timestamp with time zone default now()
 );
@@ -144,6 +145,9 @@ create policy "Pokes viewable by everyone" on public.pokes
 
 create policy "Authenticated users can send pokes" on public.pokes
   for insert with check (auth.uid() = sender_id);
+
+create policy "Users can delete own pokes" on public.pokes
+  for delete using (auth.uid() = sender_id);
 
 -- =========================================================
 -- Storage (눈바디 사진 저장 버킷)

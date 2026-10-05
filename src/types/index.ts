@@ -51,6 +51,7 @@ export interface PokeMessage {
   group_id: string;
   sender_id: string;
   receiver_id: string;
+  record_id?: string | null;
   message: string;
   created_at: string;
   sender_profile?: UserProfile;
