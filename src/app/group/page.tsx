@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/app-context";
 import { formatDate, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compressor";
 import { UserProfile } from "@/types";
 
 export default function MyPage() {
@@ -71,7 +72,7 @@ export default function MyPage() {
   const [editStartWeight, setEditStartWeight] = useState<string>("");
   const [editTargetWeight, setEditTargetWeight] = useState<string>("");
   const [avatarPreview, setAvatarPreview] = useState<string>("");
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarBlob, setAvatarBlob] = useState<Blob | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -90,25 +91,25 @@ export default function MyPage() {
     setEditStartWeight(user.start_weight ? String(user.start_weight) : "");
     setEditTargetWeight(user.target_weight ? String(user.target_weight) : "");
     setAvatarPreview(user.avatar_url || "");
-    setAvatarFile(null);
+    setAvatarBlob(null);
     setProfileEditOpen(true);
   };
 
-  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      showToast("⚠️ 사진 용량은 5MB 이하여야 합니다.", "error");
-      return;
+    try {
+      const result = await compressImage(file, 400, 0.85);
+      setAvatarPreview(result.dataUrl);
+      setAvatarBlob(result.blob);
+      showToast("✨ 프로필 사진이 준비되었습니다.", "success");
+    } catch (err: any) {
+      console.error("Avatar compression error:", err);
+      showToast("⚠️ 프로필 사진 처리에 실패했습니다.", "error");
+    } finally {
+      if (e.target) e.target.value = "";
     }
-
-    setAvatarFile(file);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -126,8 +127,8 @@ export default function MyPage() {
       let finalAvatarUrl = user.avatar_url;
 
       // 새 아바타 파일이 있으면 먼저 업로드
-      if (avatarFile) {
-        const uploadedUrl = await uploadAvatar(avatarFile);
+      if (avatarBlob) {
+        const uploadedUrl = await uploadAvatar(avatarBlob);
         if (uploadedUrl) {
           finalAvatarUrl = uploadedUrl;
         }

@@ -82,36 +82,29 @@ export function DailyLogger({
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
-      showToast("⚠️ 파일이 선택되지 않았습니다.", "warning");
+      // 카메라 취소 또는 선택하지 않고 닫은 경우 조용히 리턴
       return;
     }
 
     const fileSizeKb = Math.round(file.size / 1024);
-    showToast(
-      `📸 [선택됨: ${file.name || "사진"} (${fileSizeKb}KB)] 최적화 압축을 시작합니다...`,
-      "info"
-    );
-
     setCompressError(null);
     setIsCompressing(true);
 
     try {
-      const result = await compressImage(file, 1200, 0.8);
+      const result = await compressImage(file, 1200, 0.85);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
       showToast(
-        `✨ [압축 성공] ${fileSizeKb}KB ➔ ${result.sizeKb}KB (${result.mimeType})`,
+        `✨ [사진 준비 완료] ${fileSizeKb}KB ➔ ${result.sizeKb}KB 최적화`,
         "success"
       );
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      const errName = err?.name || "IMAGE_PROCESSING_FAILED";
       console.error("Image compression error:", err);
       setCompressError(`[오류 발생] ${errMsg}`);
       showToast(
         `⚠️ [사진 처리 실패] ${errMsg}`,
-        "error",
-        `ERR_CODE: ${errName} | FILE: ${file.name || "unknown"}`
+        "error"
       );
     } finally {
       setIsCompressing(false);
@@ -306,21 +299,20 @@ export function DailyLogger({
                   사진을 최적화하고 있습니다...
                 </span>
                 <span className="text-[12px] text-[#666666]">
-                  용량을 절약하기 위해 가볍게 압축 중입니다.
+                  카메라 사진을 가볍게 압축 중입니다.
                 </span>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {/* 1. 카메라 직접 촬영 버튼 (투명 input 100% 직결 오버레이) */}
-                <div className="relative overflow-hidden p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                {/* 1. 카메라 직접 촬영 버튼 */}
+                <label className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95">
                   <input
                     type="file"
                     accept="image/*"
                     capture="environment"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+                    className="hidden"
                     onChange={handlePhotoUpload}
                     disabled={isCompressing}
-                    title="카메라로 촬영"
                   />
                   <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center">
                     <Camera className="w-4 h-4 text-[#FF4D00]" />
@@ -331,17 +323,16 @@ export function DailyLogger({
                   <span className="text-[11px] text-[#999999]">
                     지금 바로 찰칵 📸
                   </span>
-                </div>
+                </label>
 
-                {/* 2. 앨범에서 선택 버튼 (투명 input 100% 직결 오버레이) */}
-                <div className="relative overflow-hidden p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5">
+                {/* 2. 앨범에서 선택 버튼 */}
+                <label className="p-4 bg-[#FAFAFA] border border-[#E5E5E5] hover:border-[#111111] hover:bg-zinc-100 rounded-[8px] transition-all text-center select-none flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-95">
                   <input
                     type="file"
-                    accept="image/*,image/jpeg,image/png,image/webp,image/heic,image/heif"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30"
+                    accept="image/*"
+                    className="hidden"
                     onChange={handlePhotoUpload}
                     disabled={isCompressing}
-                    title="앨범에서 선택"
                   />
                   <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center">
                     <ImageIcon className="w-4 h-4 text-zinc-700" />
@@ -352,7 +343,7 @@ export function DailyLogger({
                   <span className="text-[11px] text-[#999999]">
                     갤러리 사진 불러오기 🖼️
                   </span>
-                </div>
+                </label>
               </div>
             )}
             <p className="text-[12px] text-[#999999] text-center">
