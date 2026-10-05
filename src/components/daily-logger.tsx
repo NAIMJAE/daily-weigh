@@ -131,7 +131,7 @@ export function DailyLogger({
     setIsCompressing(true);
 
     try {
-      const result = await compressImage(file, 1080, 0.80);
+      const result = await compressImage(file, 960, 0.78);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
       showToast(
