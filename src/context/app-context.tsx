@@ -81,8 +81,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [pokes, setPokes] = useState<PokeMessage[]>([]);
-  const [loggerOpen, setLoggerOpen] = useState(false);
+  const [loggerOpen, setLoggerOpenState] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const setLoggerOpen = useCallback((open: boolean) => {
+    setLoggerOpenState(open);
+    if (typeof window !== "undefined") {
+      if (open) {
+        sessionStorage.setItem("daily_logger_open", "true");
+      } else {
+        sessionStorage.removeItem("daily_logger_open");
+        sessionStorage.removeItem("daily_logger_draft");
+      }
+    }
+  }, []);
+
+  // 모바일 브라우저 백그라운드 리로드 시 작성 중이던 모달 자동 복원
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const wasOpen = sessionStorage.getItem("daily_logger_open");
+      const hasDraft = sessionStorage.getItem("daily_logger_draft");
+      if (wasOpen === "true" || hasDraft) {
+        setLoggerOpenState(true);
+      }
+    }
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -304,12 +327,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       let finalPhotoUrl = recordData.photo_url !== undefined ? recordData.photo_url : (myTodayRecord?.photo_url ?? null);
 
-      // DataURL(Base64)이 전달된 경우 Supabase Storage에 업로드하여 정식 CDN URL로 변환
-      if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
+      // Blob URL 또는 DataURL이 전달된 경우 Supabase Storage에 업로드하여 정식 CDN URL로 변환
+      if (finalPhotoUrl && finalPhotoUrl.startsWith("blob:")) {
+        try {
+          const res = await fetch(finalPhotoUrl);
+          const photoBlob = await res.blob();
+          const mimeType = photoBlob.type || "image/jpeg";
+          const uploadResult = await uploadBodyPhoto(user.id, photoBlob, mimeType);
+          if (uploadResult.url) {
+            finalPhotoUrl = uploadResult.url;
+          }
+        } catch (blobErr) {
+          console.error("Blob upload error:", blobErr);
+        }
+      } else if (finalPhotoUrl && finalPhotoUrl.startsWith("data:image")) {
         try {
           const arr = finalPhotoUrl.split(",");
           const mimeMatch = arr[0].match(/:(.*?);/);
-          const mimeType = mimeMatch ? mimeMatch[1] : "image/webp";
+          const mimeType = mimeMatch ? mimeMatch[1] : "image/jpeg";
           const bstr = atob(arr[1]);
           let n = bstr.length;
           const u8arr = new Uint8Array(n);
@@ -322,23 +357,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (uploadResult.url) {
             finalPhotoUrl = uploadResult.url;
           } else if (uploadResult.error) {
-            const errObj = uploadResult.error;
-            const errCode = errObj?.statusCode || errObj?.error || errObj?.name || "STORAGE_UPLOAD_ERROR";
-            const errDetail = errObj?.message || errObj?.error_description || JSON.stringify(errObj);
             console.error("Storage upload failed:", uploadResult.error);
-            showToast(
-              `⚠️ [스토리지 업로드 실패: ${errDetail}]`,
-              "error",
-              `CODE: ${errCode}`
-            );
           }
         } catch (uploadErr: any) {
           console.error("Storage upload exception:", uploadErr);
-          showToast(
-            `⚠️ [스토리지 예외 발생: ${uploadErr.message || uploadErr}]`,
-            "error",
-            `CODE: ${uploadErr.name || "CLIENT_STORAGE_EXCEPTION"}`
-          );
         }
       }
 

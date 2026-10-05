@@ -39,24 +39,64 @@ export function DailyLogger({
 }: DailyLoggerProps) {
   const { showToast } = useApp();
 
-  // 모듈별 독립 상태
+  // sessionStorage에서 작성 중이던 초안 복원
+  const getInitialDraft = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = sessionStorage.getItem("daily_logger_draft");
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    return null;
+  };
+
+  const draft = getInitialDraft();
+
+  // 모듈별 독립 상태 (초안 우선 복구)
   const [weight, setWeight] = useState<string>(
-    currentRecord?.weight ? String(currentRecord.weight) : ""
+    draft?.weight ?? (currentRecord?.weight ? String(currentRecord.weight) : "")
   );
   const [photoUrl, setPhotoUrl] = useState<string | null>(
-    currentRecord?.photo_url ?? null
+    draft?.photoUrl ?? currentRecord?.photo_url ?? null
   );
   const [selectedTags, setSelectedTags] = useState<string[]>(
-    currentRecord?.workout_tags ?? []
+    draft?.selectedTags ?? currentRecord?.workout_tags ?? []
   );
   const [workoutMinutes, setWorkoutMinutes] = useState<string>(
-    currentRecord?.workout_minutes ? String(currentRecord.workout_minutes) : "30"
+    draft?.workoutMinutes ?? (currentRecord?.workout_minutes ? String(currentRecord.workout_minutes) : "30")
   );
-  const [memo, setMemo] = useState<string>(currentRecord?.memo ?? "");
+  const [memo, setMemo] = useState<string>(
+    draft?.memo ?? currentRecord?.memo ?? ""
+  );
   
   const [isCompressing, setIsCompressing] = useState(false);
   const [compressError, setCompressError] = useState<string | null>(null);
-  const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
+  const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(
+    draft?.photoSizeKb ?? null
+  );
+
+  // 실시간 변경 시 sessionStorage에 자동 백업
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const currentDraft = {
+          weight,
+          photoUrl,
+          selectedTags,
+          workoutMinutes,
+          memo,
+          photoSizeKb,
+        };
+        sessionStorage.setItem("daily_logger_draft", JSON.stringify(currentDraft));
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [weight, photoUrl, selectedTags, workoutMinutes, memo, photoSizeKb]);
 
   // 최소 1개 이상 입력 여부 확인
   const hasWeight = Boolean(weight.trim());
@@ -91,7 +131,7 @@ export function DailyLogger({
     setIsCompressing(true);
 
     try {
-      const result = await compressImage(file, 1200, 0.85);
+      const result = await compressImage(file, 1080, 0.80);
       setPhotoUrl(result.dataUrl);
       setPhotoSizeKb(result.sizeKb);
       showToast(
@@ -128,8 +168,15 @@ export function DailyLogger({
     setWeight(updated.toFixed(1));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleClose = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("daily_logger_draft");
+      sessionStorage.removeItem("daily_logger_open");
+    }
+    onClose();
+  };
+
+  const handleSubmit = () => {
     if (!hasAtLeastOne) return;
 
     onSave({
@@ -140,11 +187,16 @@ export function DailyLogger({
       memo: memo.trim() || null,
       points_earned: calculatedPoints,
     });
+
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("daily_logger_draft");
+      sessionStorage.removeItem("daily_logger_open");
+    }
     onClose();
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="space-y-4">
       {/* Target Group Info Badge */}
       {groupName && (
         <div className="flex items-center justify-between px-3 py-2 bg-[#FFF9F6] border border-[#FFD8CC] rounded-[8px] text-xs">
@@ -439,12 +491,13 @@ export function DailyLogger({
 
       {/* Footer Submit */}
       <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E5E5]">
-        <Button type="button" variant="secondary" onClick={onClose} className="text-xs">
+        <Button type="button" variant="secondary" onClick={handleClose} className="text-xs">
           취소
         </Button>
         <Button
-          type="submit"
+          type="button"
           variant="primary"
+          onClick={handleSubmit}
           disabled={!hasAtLeastOne}
           className="gap-2 px-5 text-xs"
         >
@@ -452,6 +505,6 @@ export function DailyLogger({
           {hasAtLeastOne ? `기록 저장 (+${calculatedPoints}P)` : "항목을 1개 이상 입력해주세요"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
