@@ -163,8 +163,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // 최초 로드 여부 / 현재 로그인 유저 ID 추적 (탭 복귀 시 불필요한 재초기화 방지)
+  const initializedRef = React.useRef(false);
+  const currentUserIdRef = React.useRef<string | null>(null);
+
   const init = useCallback(async () => {
-    setLoading(true);
+    // 최초 1회만 전체 로딩 화면 표시. 이후 재초기화는 화면을 언마운트하지 않고 조용히 갱신
+    if (!initializedRef.current) {
+      setLoading(true);
+    }
 
     if (!isSupabaseConfigured) {
       setLoading(false);
@@ -194,6 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       setUser(profile);
+      currentUserIdRef.current = profile.id;
 
       const userGroups = await fetchUserGroups(authUser.id);
       setGroups(userGroups);
@@ -233,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Init context error:", err);
     } finally {
+      initializedRef.current = true;
       setLoading(false);
       setMounted(true);
     }
@@ -247,9 +256,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        // 토큰 갱신은 데이터 변화가 없으므로 무시
+        if (event === "TOKEN_REFRESHED") return;
+        // 탭 복귀(카메라 앱 복귀 등) 시 같은 유저로 SIGNED_IN이 재발행되는 경우 무시
+        if (
+          event === "SIGNED_IN" &&
+          session?.user?.id &&
+          session.user.id === currentUserIdRef.current
+        ) {
+          return;
+        }
+        if (event === "SIGNED_IN" || event === "USER_UPDATED") {
           await init();
         } else if (event === "SIGNED_OUT") {
+          currentUserIdRef.current = null;
           setUser(null);
           setGroups([]);
           setCurrentGroup(null);

@@ -117,9 +117,24 @@ export function DailyLogger({
   const isAllClear = hasWeight && hasPhoto && hasWorkout;
   if (isAllClear) calculatedPoints += 15;
 
+  // 압축 결과를 다른(리마운트된) 인스턴스에서도 받을 수 있도록 이벤트 수신
+  React.useEffect(() => {
+    const onPhotoReady = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ dataUrl: string; sizeKb: number }>).detail;
+      if (detail?.dataUrl) {
+        setPhotoUrl(detail.dataUrl);
+        setPhotoSizeKb(detail.sizeKb);
+        setIsCompressing(false);
+      }
+    };
+    window.addEventListener("daily-logger-photo-ready", onPhotoReady);
+    return () => window.removeEventListener("daily-logger-photo-ready", onPhotoReady);
+  }, []);
+
   // 사진 업로드 및 자동 압축 (비동기 디코딩 보장)
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) {
       return;
     }
@@ -130,8 +145,26 @@ export function DailyLogger({
 
     try {
       const result = await compressImage(file, 960, 0.8);
-      setPhotoUrl(result.dataUrl);
-      setPhotoSizeKb(result.sizeKb);
+
+      // 1) state보다 먼저 sessionStorage 초안에 직접 기록 (컴포넌트가 리마운트돼도 복원되도록)
+      try {
+        const saved = sessionStorage.getItem("daily_logger_draft");
+        const base = saved ? JSON.parse(saved) : {};
+        sessionStorage.setItem(
+          "daily_logger_draft",
+          JSON.stringify({ ...base, photoUrl: result.dataUrl, photoSizeKb: result.sizeKb })
+        );
+      } catch {
+        // ignore (용량 초과 등)
+      }
+
+      // 2) 현재 마운트된 DailyLogger 인스턴스 전체에 전달 (이 인스턴스가 언마운트된 경우 대비)
+      window.dispatchEvent(
+        new CustomEvent("daily-logger-photo-ready", {
+          detail: { dataUrl: result.dataUrl, sizeKb: result.sizeKb },
+        })
+      );
+
       showToast(
         `✨ [사진 준비 완료] ${fileSizeKb}KB ➔ ${result.sizeKb}KB 최적화`,
         "success"
@@ -146,8 +179,8 @@ export function DailyLogger({
       );
     } finally {
       setIsCompressing(false);
-      if (e.target) {
-        e.target.value = "";
+      if (input) {
+        input.value = "";
       }
     }
   };
