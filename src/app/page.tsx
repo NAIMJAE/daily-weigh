@@ -2,23 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Plus,
-  Eye,
-  Trophy,
   Users,
   Sparkles,
-  ArrowRight,
-  Flame,
-  Scale,
-  TrendingDown,
-  Camera,
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { BottomNav } from "@/components/bottom-nav";
 import { DailyLogger } from "@/components/daily-logger";
 import { GroupWeightChart } from "@/components/group-weight-chart";
+import { GroupBmiSpectrum } from "@/components/group-bmi-spectrum";
 import { GroupModal } from "@/components/group-modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -236,47 +229,14 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Feature Navigation Cards (1행 3칸 모바일 최적화) */}
-        <div className="grid grid-cols-3 gap-2">
-          {/* Card 1: 눈바디 */}
-          <Link
-            href="/overlay"
-            className="p-3 bg-white border border-[#E5E5E5] hover:border-[#111111] rounded-[10px] transition-all group flex flex-col items-center justify-center text-center gap-1.5 shadow-2xs active:scale-[0.98] cursor-pointer"
-          >
-            <div className="w-9 h-9 rounded-full bg-[#FFF1EB] border border-[#FFD8CC] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Eye className="w-4 h-4 text-[#FF4D00]" />
-            </div>
-            <span className="text-xs font-bold text-[#111111] group-hover:text-[#FF4D00] transition-colors truncate">
-              눈바디
-            </span>
-          </Link>
-
-          {/* Card 2: 리더보드 */}
-          <Link
-            href="/leaderboard"
-            className="p-3 bg-white border border-[#E5E5E5] hover:border-[#111111] rounded-[10px] transition-all group flex flex-col items-center justify-center text-center gap-1.5 shadow-2xs active:scale-[0.98] cursor-pointer"
-          >
-            <div className="w-9 h-9 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Trophy className="w-4 h-4 text-amber-600" />
-            </div>
-            <span className="text-xs font-bold text-[#111111] group-hover:text-[#FF4D00] transition-colors truncate">
-              리더보드
-            </span>
-          </Link>
-
-          {/* Card 3: 마이페이지 */}
-          <Link
-            href="/group"
-            className="p-3 bg-white border border-[#E5E5E5] hover:border-[#111111] rounded-[10px] transition-all group flex flex-col items-center justify-center text-center gap-1.5 shadow-2xs active:scale-[0.98] cursor-pointer"
-          >
-            <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Users className="w-4 h-4 text-blue-600" />
-            </div>
-            <span className="text-xs font-bold text-[#111111] group-hover:text-[#FF4D00] transition-colors truncate">
-              마이페이지
-            </span>
-          </Link>
-        </div>
+        {/* Group Member BMI Spectrum (가로 게이지 & 멤버 핀) */}
+        <section className="space-y-3">
+          <GroupBmiSpectrum
+            members={members}
+            records={records}
+            currentUserId={user.id}
+          />
+        </section>
 
         {/* Group Weight Change Multi-line Chart */}
         <section className="space-y-3">

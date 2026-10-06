@@ -285,6 +285,20 @@ export function Leaderboard({
                     {index + 1}
                   </span>
 
+                  {/* 프로필 사진 아바타 */}
+                  <div className="w-8 h-8 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden border border-[#E5E5E5]">
+                    {member.profile?.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={member.profile.avatar_url}
+                        alt={member.profile.nickname || "멤버"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{(member.profile?.nickname || "멤").slice(0, 1)}</span>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-sm font-bold text-[#111111] truncate max-w-[120px]">
                       {member.profile?.nickname}

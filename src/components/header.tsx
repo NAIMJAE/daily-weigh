@@ -157,8 +157,17 @@ export function Header({
 
           {/* User Avatar */}
           <div className="flex items-center gap-1.5 pl-1.5 border-l border-[#E5E5E5] shrink-0">
-            <div className="w-7 h-7 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-semibold shrink-0">
-              {user.nickname.slice(0, 1)}
+            <div className="w-7 h-7 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-semibold shrink-0 overflow-hidden border border-[#E5E5E5]">
+              {user.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.avatar_url}
+                  alt={user.nickname}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{user.nickname.slice(0, 1)}</span>
+              )}
             </div>
 
             <button

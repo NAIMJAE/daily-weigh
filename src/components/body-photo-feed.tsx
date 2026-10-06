@@ -34,17 +34,21 @@ function parsePokeComment(p: PokeMessage): {
   id: string;
   sender_id: string;
   sender_name: string;
+  sender_avatar?: string;
   message: string;
   record_id: string | null;
   created_at: string;
 } {
   const rawMsg = p.message || "";
   const match = rawMsg.match(/^\[post:([a-zA-Z0-9_-]+)\]\s*([\s\S]*)$/);
+  const nickname = p.sender_profile?.nickname || "친구";
+  const avatarUrl = p.sender_profile?.avatar_url;
   if (match) {
     return {
       id: p.id,
       sender_id: p.sender_id,
-      sender_name: p.sender_profile?.nickname || "친구",
+      sender_name: nickname,
+      sender_avatar: avatarUrl,
       message: match[2],
       record_id: match[1],
       created_at: p.created_at,
@@ -53,7 +57,8 @@ function parsePokeComment(p: PokeMessage): {
   return {
     id: p.id,
     sender_id: p.sender_id,
-    sender_name: p.sender_profile?.nickname || "친구",
+    sender_name: nickname,
+    sender_avatar: avatarUrl,
     message: rawMsg,
     record_id: p.record_id || null,
     created_at: p.created_at,
@@ -109,27 +114,13 @@ export function BodyPhotoFeed({
       return (b.created_at || "").localeCompare(a.created_at || "");
     });
 
-  // 로컬 인터랙션 상태 (리액션 이모지 & 좋아요 & 댓글 입력 & 로컬 추가 댓글)
+  // 로컬 인터랙션 상태 (리액션 이모지 & 좋아요 & 댓글 입력)
   const [reactions, setReactions] = useState<Record<string, Record<string, number>>>({});
   const [userLiked, setUserLiked] = useState<Record<string, boolean>>({});
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [isSending, setIsSending] = useState<Record<string, boolean>>({});
   const [doubleTapHeart, setDoubleTapHeart] = useState<Record<string, boolean>>({});
-
-  // 실시간으로 작성된 댓글을 즉시 피드에 반영하기 위한 로컬 상태
-  const [localComments, setLocalComments] = useState<
-    Record<
-      string,
-      {
-        id: string;
-        sender_id: string;
-        sender_name: string;
-        message: string;
-        created_at: string;
-      }[]
-    >
-  >({});
 
   const toggleLike = (recordId: string) => {
     setUserLiked((prev) => {
@@ -168,26 +159,9 @@ export function BodyPhotoFeed({
 
     try {
       // 해당 피드 게시글(postId)을 전달하여 해당 글에만 격리 귀속
+      // onSendPoke 성공 시 전역 pokes 상태가 즉시 갱신되므로 로컬 상태 중복 추가 불필요
       const success = await onSendPoke(targetUserId, text, postId);
       if (success) {
-        // 즉시 로컬 댓글 목록에 추가
-        setLocalComments((prev) => {
-          const list = prev[postId] || [];
-          return {
-            ...prev,
-            [postId]: [
-              {
-                id: `local-${Date.now()}`,
-                sender_id: currentUser.id,
-                sender_name: currentUser.nickname,
-                message: text,
-                created_at: new Date().toISOString(),
-              },
-              ...list,
-            ],
-          };
-        });
-
         // 입력창 비우기 및 댓글창 자동 열기
         setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
         setExpandedComments((prev) => ({ ...prev, [postId]: true }));
@@ -233,9 +207,9 @@ export function BodyPhotoFeed({
       {/* Feed Stream */}
       <div className="space-y-4">
         {photoPosts.map((post) => {
-          const authorMember = members.find((m) => m.user_id === post.user_id);
-          const authorProfile = authorMember?.profile;
           const isMe = post.user_id === currentUser.id;
+          const authorMember = members.find((m) => m.user_id === post.user_id);
+          const authorProfile = authorMember?.profile || post.profile || (isMe ? currentUser : undefined);
           const isLiked = Boolean(userLiked[post.id]);
           const postReactions = reactions[post.id] || {};
 
@@ -246,13 +220,11 @@ export function BodyPhotoFeed({
               ? (post.weight - startWeight).toFixed(1)
               : null;
 
-          // 이 게시글(post.id)에 전용으로 달린 댓글들만 정확히 필터링 (다른 피드와 댓글 격리)
-          const dbComments = pokes
+          // 이 게시글(post.id)에 전용으로 달린 댓글들만 정확히 필터링 (중복 방지)
+          const allComments = pokes
             .map(parsePokeComment)
             .filter((c) => c.record_id === post.id);
 
-          const postLocal = localComments[post.id] || [];
-          const allComments = [...postLocal, ...dbComments];
           const isCommentsOpen = expandedComments[post.id] ?? false;
           const displayedComments = isCommentsOpen
             ? allComments
@@ -266,8 +238,17 @@ export function BodyPhotoFeed({
               {/* 1. Post Header (프로필 & 날짜 & 체중) */}
               <div className="flex items-center justify-between p-3 border-b border-[#E5E5E5]/60">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                    {(authorProfile?.nickname || "멤").slice(0, 1)}
+                  <div className="w-8 h-8 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden border border-[#E5E5E5]">
+                    {authorProfile?.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={authorProfile.avatar_url}
+                        alt={authorProfile.nickname || "멤버"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span>{(authorProfile?.nickname || "멤").slice(0, 1)}</span>
+                    )}
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="flex items-center gap-1.5">
@@ -450,16 +431,30 @@ export function BodyPhotoFeed({
                           key={comment.id}
                           className="flex items-start justify-between text-xs gap-2 py-0.5"
                         >
-                          <div className="min-w-0 leading-snug">
-                            <span className="font-bold text-[#111111] mr-1.5">
-                              {comment.sender_name}
-                              {isMyComment && (
-                                <span className="ml-1 text-[10px] text-[#FF4D00] font-normal">
-                                  (나)
-                                </span>
+                          <div className="flex items-start gap-1.5 min-w-0 leading-snug">
+                            <div className="w-5 h-5 rounded-full bg-[#111111] text-white flex items-center justify-center text-[10px] font-bold shrink-0 overflow-hidden mt-0.5 border border-[#E5E5E5]">
+                              {comment.sender_avatar ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={comment.sender_avatar}
+                                  alt={comment.sender_name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span>{comment.sender_name.slice(0, 1)}</span>
                               )}
-                            </span>
-                            <span className="text-[#333333]">"{comment.message}"</span>
+                            </div>
+                            <div className="min-w-0">
+                              <span className="font-bold text-[#111111] mr-1.5">
+                                {comment.sender_name}
+                                {isMyComment && (
+                                  <span className="ml-1 text-[10px] text-[#FF4D00] font-normal">
+                                    (나)
+                                  </span>
+                                )}
+                              </span>
+                              <span className="text-[#333333] break-words">"{comment.message}"</span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <span className="text-[10px] text-[#999999] font-mono mt-0.5">

@@ -48,6 +48,30 @@ export function PokeModal({
       maxWidth="md"
     >
       <div className="space-y-4">
+        {/* Target Member Info */}
+        <div className="flex items-center gap-2.5 p-2.5 bg-[#FFF9F6] border border-[#FFD8CC] rounded-[8px]">
+          <div className="w-9 h-9 rounded-full bg-[#111111] text-white flex items-center justify-center text-xs font-bold shrink-0 overflow-hidden border border-[#E5E5E5]">
+            {targetMember.profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={targetMember.profile.avatar_url}
+                alt={targetMember.profile.nickname || "멤버"}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span>{(targetMember.profile?.nickname || "멤").slice(0, 1)}</span>
+            )}
+          </div>
+          <div className="min-w-0 text-left">
+            <div className="text-xs font-bold text-[#111111] truncate">
+              {targetMember.profile?.nickname || "멤버"}
+            </div>
+            <p className="text-[11px] text-[#FF4D00] font-medium">
+              ⚠️ 오늘 아직 아무 기록도 남기지 않았습니다.
+            </p>
+          </div>
+        </div>
+
         {/* Preset Selector */}
         <div className="space-y-2">
           <label className="block text-xs font-bold text-[#666666] uppercase">
