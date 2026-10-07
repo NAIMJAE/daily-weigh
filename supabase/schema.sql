@@ -102,6 +102,19 @@ alter table public.group_members enable row level security;
 alter table public.daily_records enable row level security;
 alter table public.pokes enable row level security;
 
+-- 방장 여부 판별 헬퍼 함수 (RLS 무한 재귀 방지)
+create or replace function public.is_group_owner(check_group_id uuid, check_user_id uuid)
+returns boolean as $$
+begin
+  return exists (
+    select 1 from public.group_members
+    where group_id = check_group_id
+      and user_id = check_user_id
+      and role = 'owner'
+  );
+end;
+$$ language plpgsql security definer;
+
 -- Profiles: 누구나 조회 가능, 본인 레코드만 수정
 create policy "Profiles are viewable by everyone" on public.profiles
   for select using (true);
@@ -119,17 +132,24 @@ create policy "Groups viewable by everyone" on public.groups
 create policy "Authenticated users can create groups" on public.groups
   for insert with check (auth.role() = 'authenticated');
 
--- Group Members: 누구나 조회 가능 (그룹 랭킹 표시용), 본인 레코드만 수정
+-- Group Members: 누구나 조회 가능, 가입/수정/삭제 정책
 create policy "Members can view members of all groups" on public.group_members
   for select using (true);
 
 create policy "Users can join groups" on public.group_members
   for insert with check (auth.uid() = user_id);
 
-create policy "Users can update their own member stats" on public.group_members
-  for update using (auth.uid() = user_id);
+create policy "Users and owners can update group members" on public.group_members
+  for update using (
+    auth.uid() = user_id or public.is_group_owner(group_id, auth.uid())
+  );
 
--- Daily Records: 동일 그룹 내 열람 및 본인 기록 등록/수정
+create policy "Users and owners can delete group members" on public.group_members
+  for delete using (
+    auth.uid() = user_id or public.is_group_owner(group_id, auth.uid())
+  );
+
+-- Daily Records: 동일 그룹 내 열람 및 본인/방장 관리
 create policy "Daily records viewable by everyone" on public.daily_records
   for select using (true);
 
@@ -139,15 +159,22 @@ create policy "Users can insert own daily records" on public.daily_records
 create policy "Users can update own daily records" on public.daily_records
   for update using (auth.uid() = user_id);
 
--- Pokes: 그룹 내 열람 및 인증 유저 전송
+create policy "Users and owners can delete daily records" on public.daily_records
+  for delete using (
+    auth.uid() = user_id or public.is_group_owner(group_id, auth.uid())
+  );
+
+-- Pokes: 그룹 내 열람 및 전송/삭제
 create policy "Pokes viewable by everyone" on public.pokes
   for select using (true);
 
 create policy "Authenticated users can send pokes" on public.pokes
   for insert with check (auth.uid() = sender_id);
 
-create policy "Users can delete own pokes" on public.pokes
-  for delete using (auth.uid() = sender_id);
+create policy "Users and owners can delete pokes" on public.pokes
+  for delete using (
+    auth.uid() = sender_id or auth.uid() = receiver_id or public.is_group_owner(group_id, auth.uid())
+  );
 
 -- =========================================================
 -- Storage (눈바디 사진 저장 버킷)

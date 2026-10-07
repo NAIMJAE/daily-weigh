@@ -28,6 +28,9 @@ import {
   uploadBodyPhoto,
   uploadAvatarPhoto,
   updateProfile,
+  kickMemberFromGroup,
+  leaveGroupMember,
+  syncUserRecordsToTargetGroups,
 } from "@/lib/supabase/api";
 import { DailyRecord, Group, GroupMember, PokeMessage, UserProfile } from "@/types";
 import { getTodayDateString, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
@@ -49,6 +52,9 @@ interface AppContextType {
   userMemberInfo?: GroupMember;
   myTodayRecord?: DailyRecord;
   myPhotoRecords: DailyRecord[];
+  autoSyncGroupIds: string[];
+  updateAutoSyncGroupIds: (groupIds: string[]) => void;
+  syncRecordsToSelectedGroups: (targetGroupIds: string[]) => Promise<{ success: boolean; syncedCount: number }>;
   loggerOpen: boolean;
   setLoggerOpen: (open: boolean) => void;
   toastMsg: string | null;
@@ -65,6 +71,8 @@ interface AppContextType {
   uploadAvatar: (file: File | Blob) => Promise<string | null>;
   createNewGroup: (name: string, penaltyRule: string) => Promise<Group | null>;
   joinExistingGroup: (group: Group) => Promise<boolean>;
+  kickMember: (targetUserId: string, keepRecords: boolean) => Promise<boolean>;
+  leaveGroup: (groupId: string, keepRecords: boolean) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshGroupData: () => Promise<void>;
   refreshAuth: () => Promise<void>;
@@ -83,8 +91,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [pokes, setPokes] = useState<PokeMessage[]>([]);
+  const [autoSyncGroupIds, setAutoSyncGroupIdsState] = useState<string[]>([]);
   const [loggerOpen, setLoggerOpenState] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  // 유저별 자동 동기화 그룹 설정 불러오기
+  useEffect(() => {
+    if (user && typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(`daily_weigh_auto_sync_${user.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setAutoSyncGroupIdsState(parsed);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load auto sync preferences:", e);
+      }
+    }
+  }, [user]);
+
+  const updateAutoSyncGroupIds = useCallback(
+    (groupIds: string[]) => {
+      setAutoSyncGroupIdsState(groupIds);
+      if (user && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(`daily_weigh_auto_sync_${user.id}`, JSON.stringify(groupIds));
+        } catch (e) {
+          console.error("Failed to save auto sync preferences:", e);
+        }
+      }
+    },
+    [user]
+  );
 
   const setLoggerOpen = useCallback((open: boolean) => {
     setLoggerOpenState(open);
@@ -429,10 +469,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
             )
           );
         }
-        showToast(
-          `🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다! (+${payload.points_earned}P)`,
-          "success"
-        );
+
+        // 다중 그룹 자동 동기화 처리 (autoSyncGroupIds에 포함된 다른 그룹들에도 저장)
+        const otherSyncGroups = autoSyncGroupIds.filter((gid) => gid !== currentGroup.id);
+        if (otherSyncGroups.length > 0) {
+          try {
+            for (const targetGid of otherSyncGroups) {
+              await upsertDailyRecord({
+                ...payload,
+                group_id: targetGid,
+              });
+              if (deltaStreak !== 0 || deltaPoints !== 0) {
+                await updateMemberStats(user.id, targetGid, {
+                  streak_days: deltaStreak,
+                  weekly_points: deltaPoints,
+                });
+              }
+            }
+          } catch (syncErr) {
+            console.error("Auto sync to other groups failed:", syncErr);
+          }
+        }
+
+        const syncMsg =
+          otherSyncGroups.length > 0
+            ? `🎉 [${currentGroup.name} 외 ${otherSyncGroups.length}개 그룹] 기록이 동기화되어 저장되었습니다! (+${payload.points_earned}P)`
+            : `🎉 [${currentGroup.name}] 오늘의 기록이 저장되었습니다! (+${payload.points_earned}P)`;
+
+        showToast(syncMsg, "success");
         return true;
       } else {
         const errObj = dbError;
@@ -447,7 +511,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return false;
       }
     },
-    [user, currentGroup, myTodayRecord, todayStr, showToast]
+    [user, currentGroup, myTodayRecord, todayStr, autoSyncGroupIds, showToast]
+  );
+
+  // 과거 기록 포함 일괄 동기화 함수
+  const syncRecordsToSelectedGroups = useCallback(
+    async (targetGroupIds: string[]): Promise<{ success: boolean; syncedCount: number }> => {
+      if (!user || !currentGroup) return { success: false, syncedCount: 0 };
+      try {
+        const result = await syncUserRecordsToTargetGroups(
+          user.id,
+          currentGroup.id,
+          targetGroupIds
+        );
+        if (result.success) {
+          showToast(
+            `✨ [${currentGroup.name}]의 기록 ${result.syncedCount}건이 선택한 그룹에 성공적으로 동기화되었습니다!`,
+            "success"
+          );
+        } else {
+          showToast("⚠️ 기록 동기화 중 일부 오류가 발생했습니다.", "error");
+        }
+        return result;
+      } catch (err: any) {
+        console.error("syncRecordsToSelectedGroups error:", err);
+        showToast("⚠️ 기록 동기화 중 오류가 발생했습니다.", "error");
+        return { success: false, syncedCount: 0 };
+      }
+    },
+    [user, currentGroup, showToast]
   );
 
   const sendPokeMessage = useCallback(
@@ -603,6 +695,83 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [user, showToast]
   );
 
+  const kickMember = useCallback(
+    async (targetUserId: string, keepRecords: boolean): Promise<boolean> => {
+      if (!currentGroup) return false;
+      try {
+        const { success, error } = await kickMemberFromGroup(
+          currentGroup.id,
+          targetUserId,
+          keepRecords
+        );
+        if (!success) {
+          const errMsg = error?.message || error?.details || "권한이 없거나 RLS 정책에 의해 차단되었습니다.";
+          showToast(`⚠️ 멤버 강퇴 실패: ${errMsg}`, "error");
+          return false;
+        }
+
+        // 상태 업데이트
+        setMembers((prev) => prev.filter((m) => m.user_id !== targetUserId));
+        if (!keepRecords) {
+          setRecords((prev) => prev.filter((r) => r.user_id !== targetUserId));
+          setPokes((prev) =>
+            prev.filter(
+              (p) => p.sender_id !== targetUserId && p.receiver_id !== targetUserId
+            )
+          );
+        }
+
+        showToast("🚪 해당 멤버를 그룹에서 강퇴했습니다.", "info");
+        await loadGroupData(currentGroup);
+        return true;
+      } catch (err: any) {
+        console.error("kickMember error:", err);
+        showToast(`⚠️ 멤버 강퇴 중 오류: ${err?.message || "알 수 없는 오류"}`, "error");
+        return false;
+      }
+    },
+    [currentGroup, loadGroupData, showToast]
+  );
+
+  const leaveGroup = useCallback(
+    async (groupId: string, keepRecords: boolean): Promise<boolean> => {
+      if (!user) return false;
+      try {
+        const { success, error } = await leaveGroupMember(groupId, user.id, keepRecords);
+        if (!success) {
+          const errMsg = error?.message || error?.details || "퇴장 처리에 실패했습니다.";
+          showToast(`⚠️ 그룹 퇴장 실패: ${errMsg}`, "error");
+          return false;
+        }
+
+        // 내 그룹 목록에서 제거
+        const updatedGroups = groups.filter((g) => g.id !== groupId);
+        setGroups(updatedGroups);
+
+        // 현재 보고 있던 그룹에서 나간 경우 처리
+        if (currentGroup?.id === groupId) {
+          if (updatedGroups.length > 0) {
+            await selectGroup(updatedGroups[0]);
+          } else {
+            setCurrentGroup(null);
+            setMembers([]);
+            setRecords([]);
+            setPokes([]);
+            localStorage.removeItem(ACTIVE_GROUP_KEY);
+          }
+        }
+
+        showToast("👋 그룹에서 성공적으로 퇴장했습니다.", "info");
+        return true;
+      } catch (err: any) {
+        console.error("leaveGroup error:", err);
+        showToast(`⚠️ 그룹 퇴장 중 오류: ${err?.message || "알 수 없는 오류"}`, "error");
+        return false;
+      }
+    },
+    [user, groups, currentGroup, selectGroup, showToast]
+  );
+
   return (
     <AppContext.Provider
       value={{
@@ -618,6 +787,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         userMemberInfo,
         myTodayRecord,
         myPhotoRecords,
+        autoSyncGroupIds,
+        updateAutoSyncGroupIds,
+        syncRecordsToSelectedGroups,
         loggerOpen,
         setLoggerOpen,
         toastMsg,
@@ -630,6 +802,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         uploadAvatar,
         createNewGroup,
         joinExistingGroup,
+        kickMember,
+        leaveGroup,
         logout,
         refreshGroupData,
         refreshAuth: init,

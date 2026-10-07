@@ -83,36 +83,68 @@ export function Leaderboard({
     else setOffsetYears(0);
   };
 
-  // 4. 선택된 기간 기준으로 멤버별 포인트 및 출석 일수 계산
+  // 4. 선택된 기간 기준으로 멤버별 포인트 및 출석 일수 계산 (기록 보존된 이전 멤버 포함)
   const enrichedMembers = useMemo(() => {
-    return members.map((member) => {
-      // 선택된 기간 내 적립 포인트 계산
-      const periodPoints = calculatePeriodPoints(
-        records,
-        member.user_id,
-        periodInfo.startStr,
-        periodInfo.endStr
-      );
+    const activeUserIds = new Set(members.map((m) => m.user_id));
 
-      // 선택된 기간 내 실제 출석 일수
-      const attendanceDays = calculatePeriodAttendanceDays(
-        records,
-        member.user_id,
-        periodInfo.startStr,
-        periodInfo.endStr
-      );
-
-      // 연속 출석 일수
-      const liveStreak = calculateStreakDays(records, member.user_id);
-
-      return {
-        ...member,
-        periodPoints,
-        attendanceDays,
-        liveStreak,
-      };
+    // records에 기록이 남아있는 이전 참여자들 추출
+    const formerMembersMap = new Map<string, GroupMember>();
+    records.forEach((r) => {
+      if (!activeUserIds.has(r.user_id) && !formerMembersMap.has(r.user_id) && r.profile) {
+        formerMembersMap.set(r.user_id, {
+          id: `former-${r.user_id}`,
+          group_id: currentGroup.id,
+          user_id: r.user_id,
+          role: "member",
+          status: "left",
+          streak_days: 0,
+          weekly_points: 0,
+          joined_at: r.created_at,
+          profile: r.profile,
+        });
+      }
     });
-  }, [members, records, periodInfo]);
+
+    const allMembers = [...members, ...Array.from(formerMembersMap.values())];
+
+    return allMembers
+      .map((member) => {
+        const isFormer = !activeUserIds.has(member.user_id);
+        // 선택된 기간 내 적립 포인트 계산
+        const periodPoints = calculatePeriodPoints(
+          records,
+          member.user_id,
+          periodInfo.startStr,
+          periodInfo.endStr
+        );
+
+        // 선택된 기간 내 실제 출석 일수
+        const attendanceDays = calculatePeriodAttendanceDays(
+          records,
+          member.user_id,
+          periodInfo.startStr,
+          periodInfo.endStr
+        );
+
+        // 연속 출석 일수
+        const liveStreak = isFormer ? 0 : calculateStreakDays(records, member.user_id);
+
+        return {
+          ...member,
+          isFormer,
+          periodPoints,
+          attendanceDays,
+          liveStreak,
+        };
+      })
+      .filter((member) => {
+        // 탈퇴/강퇴 멤버는 해당 기간에 점수가 있을 때만 랭킹에 표시
+        if (member.isFormer) {
+          return member.periodPoints > 0;
+        }
+        return true;
+      });
+  }, [members, records, periodInfo, currentGroup.id]);
 
   // 포인트 내림차순 정렬 (동점 시 출석 일수 순)
   const sortedMembers = useMemo(() => {
@@ -303,6 +335,11 @@ export function Leaderboard({
                     <span className="text-sm font-bold text-[#111111] truncate max-w-[120px]">
                       {member.profile?.nickname}
                     </span>
+                    {member.isFormer && (
+                      <span className="text-[10px] text-zinc-500 bg-zinc-100 border border-zinc-200 px-1.5 py-0.2 rounded-[4px] whitespace-nowrap shrink-0 font-medium">
+                        이전 멤버
+                      </span>
+                    )}
                     {isCurrentUser && (
                       <span className="text-[11px] text-[#FF4D00] font-bold bg-[#FFF1EB] border border-[#FFD8CC] px-1.5 py-0.5 rounded-[4px] whitespace-nowrap shrink-0">
                         나
@@ -316,7 +353,7 @@ export function Leaderboard({
                         🔥 1위
                       </Badge>
                     )}
-                    {isLast && (
+                    {isLast && !member.isFormer && (
                       <Badge
                         variant="danger"
                         className="text-[11px] py-0.5 px-1.5 whitespace-nowrap shrink-0"
@@ -329,10 +366,12 @@ export function Leaderboard({
 
                 {/* 스트릭 & 포인트 */}
                 <div className="flex items-center gap-2.5 shrink-0">
-                  <span className="flex items-center gap-0.5 text-xs text-[#666666] font-semibold">
-                    <Flame className="w-3.5 h-3.5 text-[#FF4D00] shrink-0" />
-                    {member.liveStreak}일
-                  </span>
+                  {!member.isFormer && (
+                    <span className="flex items-center gap-0.5 text-xs text-[#666666] font-semibold">
+                      <Flame className="w-3.5 h-3.5 text-[#FF4D00] shrink-0" />
+                      {member.liveStreak}일
+                    </span>
+                  )}
                   <div className="text-right font-mono font-extrabold text-sm text-[#111111]">
                     {member.periodPoints}P
                   </div>
@@ -384,7 +423,11 @@ export function Leaderboard({
 
                     {/* 액션 버튼 */}
                     <div className="shrink-0">
-                      {!isCurrentUser ? (
+                      {member.isFormer ? (
+                        <span className="text-xs text-[#999999] px-2 py-0.5 bg-[#FAFAFA] rounded-[4px] border border-[#E5E5E5] whitespace-nowrap">
+                          이전 참여자
+                        </span>
+                      ) : !isCurrentUser ? (
                         !hasAnyTodayRecord ? (
                           <Button
                             size="sm"

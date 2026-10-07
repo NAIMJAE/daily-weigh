@@ -26,13 +26,17 @@ import { Header } from "@/components/header";
 import { BottomNav } from "@/components/bottom-nav";
 import { DailyLogger } from "@/components/daily-logger";
 import { GroupModal } from "@/components/group-modal";
+import { KickMemberModal } from "@/components/kick-member-modal";
+import { LeaveGroupModal } from "@/components/leave-group-modal";
+import { SyncGroupRecordsModal } from "@/components/sync-group-records-modal";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/app-context";
 import { formatDate, calculateWeeklyPoints, calculateStreakDays } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compressor";
-import { UserProfile } from "@/types";
+import { Group, GroupMember, UserProfile } from "@/types";
+import { RefreshCw, Layers } from "lucide-react";
 
 export default function MyPage() {
   const router = useRouter();
@@ -56,15 +60,25 @@ export default function MyPage() {
     uploadAvatar,
     createNewGroup,
     joinExistingGroup,
+    kickMember,
+    leaveGroup,
+    autoSyncGroupIds,
+    updateAutoSyncGroupIds,
+    syncRecordsToSelectedGroups,
     logout,
   } = useApp();
 
   const [copied, setCopied] = useState(false);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [groupModalState, setGroupModalState] = useState<{
     isOpen: boolean;
     mode: "create" | "invite";
   }>({ isOpen: false, mode: "create" });
+
+  // 강퇴 및 퇴장 모달 상태
+  const [kickTargetMember, setKickTargetMember] = useState<GroupMember | null>(null);
+  const [leaveTargetGroup, setLeaveTargetGroup] = useState<Group | null>(null);
 
   // 프로필 수정 폼 상태
   const [editNickname, setEditNickname] = useState("");
@@ -545,7 +559,7 @@ export default function MyPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2.5 shrink-0">
                     <div className="text-right">
                       <div className="text-xs font-bold font-mono text-[#111111]">
                         {livePoints}P
@@ -555,11 +569,41 @@ export default function MyPage() {
                         {liveStreak}일
                       </div>
                     </div>
+
+                    {/* 방장 전용 멤버 강퇴 버튼 (본인 제외) */}
+                    {isOwner && !isMe && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setKickTargetMember(member);
+                        }}
+                        className="px-2 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-[6px] text-[11px] font-bold transition-colors cursor-pointer active:scale-95 flex items-center gap-1"
+                        title="그룹에서 강퇴하기"
+                      >
+                        <UserCheck className="w-3 h-3 text-red-500 hidden" />
+                        강퇴
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
+
+          {/* 현재 그룹에서 나가기 버튼 (본인) */}
+          {currentGroup && (
+            <div className="pt-2 border-t border-[#E5E5E5] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setLeaveTargetGroup(currentGroup)}
+                className="text-xs text-red-600 hover:text-red-700 hover:underline font-medium flex items-center gap-1 cursor-pointer py-1 px-1.5"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>이 그룹에서 나가기</span>
+              </button>
+            </div>
+          )}
         </section>
 
         {/* ======================================================== */}
@@ -607,17 +651,150 @@ export default function MyPage() {
                       코드: {g.invite_code}
                     </div>
                   </div>
-                  {isSelected ? (
-                    <span className="text-[11px] font-bold text-[#FF4D00] bg-white px-2 py-0.5 rounded border border-[#FFD8CC]">
-                      선택됨
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-[#666666]">전환 →</span>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isSelected ? (
+                      <span className="text-[11px] font-bold text-[#FF4D00] bg-white px-2 py-0.5 rounded border border-[#FFD8CC]">
+                        선택됨
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-[#666666]">전환 →</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setLeaveTargetGroup(g);
+                      }}
+                      className="p-1 text-[#999999] hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      title="그룹 나가기"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* 5. 내 기록 다중 그룹 동기화 & 공유 관리 */}
+        {/* ======================================================== */}
+        <section className="p-4 bg-white border border-[#E5E5E5] rounded-[12px] space-y-3.5 shadow-2xs">
+          <div className="flex items-center justify-between pb-1 border-b border-[#E5E5E5]">
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-bold text-[#111111] uppercase tracking-wider flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 text-[#FF4D00]" />
+                내 기록 다중 그룹 동기화 & 공유
+              </h3>
+              <p className="text-[11px] text-[#666666]">
+                한 번만 기록해도 선택한 그룹들에 자동으로 함께 출석 및 포인트가 공유됩니다.
+              </p>
+            </div>
+          </div>
+
+          {groups.length > 1 ? (
+            <div className="space-y-3">
+              {/* 자동 동기화 체크박스 목록 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-[#111111]">
+                    자동 공유 그룹 선택 ({autoSyncGroupIds.length}개 선택됨)
+                  </label>
+                  <span className="text-[10px] text-[#999999]">기록 시 자동 저장</span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-1.5">
+                  {groups.map((g) => {
+                    const isCurrent = g.id === currentGroup?.id;
+                    const isChecked = autoSyncGroupIds.includes(g.id);
+
+                    const handleToggleSync = () => {
+                      if (isChecked) {
+                        updateAutoSyncGroupIds(autoSyncGroupIds.filter((id) => id !== g.id));
+                      } else {
+                        updateAutoSyncGroupIds([...autoSyncGroupIds, g.id]);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={g.id}
+                        onClick={handleToggleSync}
+                        className={`p-2.5 rounded-[8px] border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                          isChecked
+                            ? "bg-[#FFF9F6] border-[#FFD8CC]"
+                            : "bg-[#FAFAFA] border-[#E5E5E5] hover:border-[#CCCCCC]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={handleToggleSync}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-4 h-4 text-[#FF4D00] focus:ring-[#FF4D00] accent-[#FF4D00] rounded cursor-pointer"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-[#111111] truncate max-w-[130px]">
+                                {g.name}
+                              </span>
+                              {isCurrent && (
+                                <span className="text-[10px] font-bold text-[#FF4D00] bg-[#FFF1EB] px-1 rounded">
+                                  현재 활성
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[#999999] font-mono">
+                              코드: {g.invite_code}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            isChecked
+                              ? "text-[#FF4D00] bg-white border border-[#FFD8CC]"
+                              : "text-[#999999] bg-[#EFEFEF]"
+                          }`}
+                        >
+                          {isChecked ? "자동 공유 중" : "미공유"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 과거 기록 일괄 동기화 버튼 */}
+              <div className="pt-2 border-t border-[#E5E5E5] flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[11px] text-[#666666] min-w-0">
+                    현재 그룹(<strong>{currentGroup?.name}</strong>)의 내 과거 기록 <strong>{myRecords.length}건</strong>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={() => setSyncModalOpen(true)}
+                    className="text-xs py-1.5 px-3 h-auto font-bold gap-1 shrink-0"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    기존 기록 일괄 동기화
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-[#FAFAFA] border border-dashed border-[#E5E5E5] rounded-[8px] text-xs text-[#666666] space-y-1">
+              <p className="font-semibold text-[#111111]">
+                💡 2개 이상의 그룹에 참여하면 기록 동기화 기능이 활성화됩니다.
+              </p>
+              <p className="text-[11px] text-[#999999]">
+                여러 모임/그룹에 참여하고 계실 경우, 한 번만 기록해도 모든 그룹에 동시에 출석과 체중/눈바디 기록을 공유할 수 있습니다.
+              </p>
+            </div>
+          )}
 
           {/* Logout button */}
           <div className="pt-2 border-t border-[#E5E5E5]">
@@ -810,6 +987,34 @@ export default function MyPage() {
         currentGroup={currentGroup}
         onClose={() => setGroupModalState({ ...groupModalState, isOpen: false })}
         onCreateGroup={createNewGroup}
+      />
+
+      {/* 강퇴 확인 모달 */}
+      <KickMemberModal
+        isOpen={!!kickTargetMember}
+        targetMember={kickTargetMember}
+        onClose={() => setKickTargetMember(null)}
+        onConfirm={kickMember}
+      />
+
+      {/* 그룹 나가기 확인 모달 */}
+      <LeaveGroupModal
+        isOpen={!!leaveTargetGroup}
+        group={leaveTargetGroup}
+        currentUserMember={userMemberInfo}
+        memberCount={members.length}
+        onClose={() => setLeaveTargetGroup(null)}
+        onConfirm={leaveGroup}
+      />
+
+      {/* 내 기록 일괄 동기화 모달 */}
+      <SyncGroupRecordsModal
+        isOpen={syncModalOpen}
+        currentGroup={currentGroup}
+        groups={groups}
+        recordCount={myRecords.length}
+        onClose={() => setSyncModalOpen(false)}
+        onSync={syncRecordsToSelectedGroups}
       />
 
       <BottomNav onOpenLogger={() => setLoggerOpen(true)} />

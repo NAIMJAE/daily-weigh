@@ -24,9 +24,11 @@ export interface GroupMember {
   group_id: string;
   user_id: string;
   role: "owner" | "member";
+  status?: "active" | "kicked" | "left";
   streak_days: number;
   weekly_points: number;
   joined_at: string;
+  left_at?: string | null;
   profile?: UserProfile;
 }
 
